@@ -66,8 +66,8 @@
   <button data-gain="reset" id="gain-reset">Reset (1.0×)</button>
   <span class="meta" id="gain-value">1.00×</span>
   <span style="margin-left:18px;">Spike threshold:</span>
-  <input type="range" id="thr-slider" min="2" max="8" step="0.1" value="4" style="width:180px;">
-  <span class="meta" id="thr-value">4.0× MAD (adaptive)</span>
+  <input type="range" id="thr-slider" min="1.5" max="12" step="0.1" value="4" style="width:200px;">
+  <span class="meta" id="thr-value">4.0× noise SD</span>
   <button id="thr-reset">Reset (4.0)</button>
 </div>
 
@@ -437,21 +437,15 @@ function draw() {
     }
     ctx.stroke();
 
-    // Adaptive threshold line for filtered (k × rolling MAD, step changes per 0.5s window)
-    if (STATE.showFilt && STATE.thrWindows[ci]) {
-      ctx.strokeStyle = 'rgba(220, 0, 0, 0.55)';
-      ctx.setLineDash([3, 3]);
+    // Threshold line for filtered (k × global noise SD — single flat line per channel)
+    if (STATE.showFilt && STATE.perChannelThr) {
+      const thr = STATE.perChannelThr[ci];
+      const yThr = yMid - thr * ampScale;
+      ctx.strokeStyle = 'rgba(220, 0, 0, 0.6)';
+      ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1;
       ctx.beginPath();
-      let started = false;
-      for (const tw_ of STATE.thrWindows[ci]) {
-        if (tw_.end < startSamp || tw_.start > endSamp) continue;
-        const x0 = padL + (Math.max(tw_.start, startSamp) - startSamp) / (endSamp - startSamp) * (W - padL - padR);
-        const x1 = padL + (Math.min(tw_.end, endSamp) - startSamp) / (endSamp - startSamp) * (W - padL - padR);
-        const yT = yMid - tw_.thr * ampScale;
-        if (!started) { ctx.moveTo(x0, yT); started = true; } else ctx.lineTo(x0, yT);
-        ctx.lineTo(x1, yT);
-      }
+      ctx.moveTo(padL, yThr); ctx.lineTo(W - padR, yThr);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -641,7 +635,7 @@ function computeFiringRate() {
     }
     out.push({ch: meta.channel_labels[ci], n, rate: n / dur, dur});
   }
-  showResults(`Firing Rate (${STATE.thresholdMult.toFixed(1)}× rolling MAD, 4 ms refractory, ${dur.toFixed(3)} s epoch)`,
+  showResults(`Firing Rate (${STATE.thresholdMult.toFixed(1)}× noise SD, 4 ms refractory, ${dur.toFixed(3)} s epoch)`,
               out, ['ch', 'n', 'rate'], ['Channel', '# spikes', 'Rate (Hz)']);
 }
 
@@ -762,57 +756,43 @@ function playVisibleWindow() {
 document.getElementById('play-btn').addEventListener('click', playVisibleWindow);
 document.getElementById('stop-btn').addEventListener('click', stopAudio);
 
-// ====== Adaptive spike detection (rolling MAD in 0.5-s windows) ======
+// ====== Spike detection (global noise SD per channel × user multiplier) ======
 function detectAllSpikes() {
   if (!STATE.currentMeta) return;
   const meta = STATE.currentMeta;
   const ncs = meta.n_channels;
   const sr = STATE.sr;
   const N = meta.n_samples;
-  const winSize = Math.floor(0.5 * sr);   // 0.5-second window
   const refrSamp = Math.floor(0.004 * sr);
   const k = STATE.thresholdMult;
   const t0 = performance.now();
   STATE.spikes = [];
-  STATE.thrWindows = [];
+  STATE.perChannelThr = []; // single threshold value per channel
   for (let ci = 0; ci < ncs; ci++) {
+    // Global threshold = k × noise SD (precomputed at session load)
+    const nsdInts = STATE.noiseSD[ci] * STATE.filtScales[ci];
+    const thr = k * nsdInts;
+    STATE.perChannelThr.push(thr);
     const spk = [];
-    const winList = [];
-    for (let w0 = 0; w0 < N; w0 += winSize) {
-      const w1 = Math.min(N, w0 + winSize);
-      // Median absolute deviation (robust noise estimate, immune to spikes)
-      const buf = new Float64Array(w1 - w0);
-      for (let i = w0; i < w1; i++) buf[i - w0] = STATE.filtSamples[i * ncs + ci];
-      // sort copy for median
-      const sorted = buf.slice().sort();
-      const median = sorted[sorted.length >> 1];
-      for (let i = 0; i < buf.length; i++) buf[i] = Math.abs(buf[i] - median);
-      buf.sort();
-      const mad = buf[buf.length >> 1] / 0.6745;
-      const thr = k * mad;
-      winList.push({start: w0, end: w1, thr});
-      // detect positive crossings in this window
-      let i = w0;
-      while (i < w1) {
-        const v = STATE.filtSamples[i * ncs + ci];
-        if (v > thr) {
-          const jEnd = Math.min(w1, i + refrSamp);
-          let pk = i, pkV = v;
-          for (let j = i + 1; j < jEnd; j++) {
-            const v2 = STATE.filtSamples[j * ncs + ci];
-            if (v2 > pkV) { pkV = v2; pk = j; }
-          }
-          spk.push(pk);
-          i = pk + refrSamp;
-        } else i++;
-      }
+    let i = 0;
+    while (i < N) {
+      const v = STATE.filtSamples[i * ncs + ci];
+      if (v > thr) {
+        const jEnd = Math.min(N, i + refrSamp);
+        let pk = i, pkV = v;
+        for (let j = i + 1; j < jEnd; j++) {
+          const v2 = STATE.filtSamples[j * ncs + ci];
+          if (v2 > pkV) { pkV = v2; pk = j; }
+        }
+        spk.push(pk);
+        i = pk + refrSamp;
+      } else i++;
     }
     STATE.spikes.push(spk);
-    STATE.thrWindows.push(winList);
   }
   const dt = performance.now() - t0;
   const totalSpk = STATE.spikes.reduce((s,a)=>s+a.length, 0);
-  console.log(`Detected ${totalSpk} spikes across ${ncs} channels at ${k.toFixed(1)}× MAD (${dt.toFixed(0)} ms)`);
+  console.log(`Detected ${totalSpk} spikes across ${ncs} channels at ${k.toFixed(1)}× noise SD (${dt.toFixed(0)} ms)`);
 }
 
 // Slider events for threshold
@@ -822,14 +802,14 @@ let thrDebounce = null;
 thrSlider.addEventListener('input', (e) => {
   const k = parseFloat(e.target.value);
   STATE.thresholdMult = k;
-  thrValueLbl.textContent = `${k.toFixed(1)}× MAD (adaptive)`;
+  thrValueLbl.textContent = `${k.toFixed(1)}× noise SD`;
   clearTimeout(thrDebounce);
-  thrDebounce = setTimeout(() => { detectAllSpikes(); draw(); }, 120);
+  thrDebounce = setTimeout(() => { detectAllSpikes(); draw(); }, 80);
 });
 document.getElementById('thr-reset').addEventListener('click', () => {
   STATE.thresholdMult = 4.0;
   thrSlider.value = 4;
-  thrValueLbl.textContent = '4.0× MAD (adaptive)';
+  thrValueLbl.textContent = '4.0× noise SD';
   detectAllSpikes(); draw();
 });
 
