@@ -1,0 +1,54 @@
+{
+ "name": "5-19_squid3_tent2_15-54_feeding",
+ "sample_rate": 2500,
+ "n_samples": 576629,
+ "n_channels": 2,
+ "duration_s": 230.6516,
+ "raw_scales_per_channel": [
+  1.9664765203255585,
+  2.1983666286228303
+ ],
+ "filt_scales_per_channel": [
+  2.777431437035126,
+  2.3125079878844566
+ ],
+ "noise_sd_filt": [
+  115.2003173828125,
+  110.22313690185547
+ ],
+ "events": [
+  {
+   "id": 1,
+   "time_s": 47.0,
+   "label": "shrimp"
+  },
+  {
+   "id": 0,
+   "time_s": 140.0,
+   "label": "seawater"
+  }
+ ],
+ "paired": false,
+ "info": {
+  "squid": 3,
+  "prep": "Tentacle 2",
+  "date": "5/19",
+  "time": "15:54",
+  "purpose": "feeding",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ],
+  "note": "175 s mechanical contact artifact"
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

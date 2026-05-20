@@ -1,0 +1,42 @@
+{
+ "name": "5-19_squid3_tent1_15-27_passive",
+ "sample_rate": 2500,
+ "n_samples": 102880,
+ "n_channels": 2,
+ "duration_s": 41.152,
+ "raw_scales_per_channel": [
+  147069.22517247123,
+  135508.46304910057
+ ],
+ "filt_scales_per_channel": [
+  170606.6969696127,
+  154467.21123456673
+ ],
+ "noise_sd_filt": [
+  0.003529197536408901,
+  0.003348055761307478
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": 3,
+  "prep": "Tentacle 1",
+  "date": "5/19",
+  "time": "15:27",
+  "purpose": "passive",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ]
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

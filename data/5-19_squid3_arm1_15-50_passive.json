@@ -1,0 +1,42 @@
+{
+ "name": "5-19_squid3_arm1_15-50_passive",
+ "sample_rate": 2500,
+ "n_samples": 348699,
+ "n_channels": 2,
+ "duration_s": 139.4796,
+ "raw_scales_per_channel": [
+  25.474188852263133,
+  21.723124465869468
+ ],
+ "filt_scales_per_channel": [
+  28.861514626181158,
+  27.162724035431822
+ ],
+ "noise_sd_filt": [
+  116.86668395996094,
+  111.99542999267578
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": 3,
+  "prep": "Arm 1",
+  "date": "5/19",
+  "time": "15:50",
+  "purpose": "passive",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ]
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

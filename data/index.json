@@ -1,0 +1,109 @@
+{
+ "sessions": [
+  {
+   "id": "5-19_squid1_tent_10-21_background",
+   "label": "5/19 Squid 1 Tentacle 1 10:21 \u2014 background (long, 7 min)",
+   "duration_s": 443.3264,
+   "n_channels": 1,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-19_squid1_tent_10-33_feeding",
+   "label": "5/19 Squid 1 Tentacle 1 10:33 \u2014 feeding",
+   "duration_s": 1049.0484,
+   "n_channels": 1,
+   "n_events": 4,
+   "paired": false
+  },
+  {
+   "id": "5-19_squid1_tent_11-03_estim",
+   "label": "5/19 Squid 1 Tentacle 1 11:03 \u2014 electrical stim",
+   "duration_s": 257.9084,
+   "n_channels": 1,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-19_squid3_arm1_15-50_passive",
+   "label": "5/19 Squid 3 Arm 1 15:50 \u2014 passive",
+   "duration_s": 139.4796,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-19_squid3_tent1_15-27_passive",
+   "label": "5/19 Squid 3 Tentacle 1 15:27 \u2014 passive",
+   "duration_s": 41.152,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-19_squid3_tent2_15-54_feeding",
+   "label": "5/19 Squid 3 Tentacle 2 15:54 \u2014 feeding",
+   "duration_s": 230.6516,
+   "n_channels": 2,
+   "n_events": 2,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_arm1_11-48_feeding",
+   "label": "5/20 Squid 4 Arm 1 11-48 \u2014 feeding",
+   "duration_s": 431.2464,
+   "n_channels": 2,
+   "n_events": 4,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-02_seawater",
+   "label": "5/20 Squid 4 Tentacle 1 11-02 \u2014 seawater",
+   "duration_s": 167.2024,
+   "n_channels": 2,
+   "n_events": 3,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-07_baseline",
+   "label": "5/20 Squid 4 Tentacle 1 11-07 \u2014 baseline",
+   "duration_s": 99.6352,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-08_baseline",
+   "label": "5/20 Squid 4 Tentacle 1 11-08 \u2014 baseline",
+   "duration_s": 190.2416,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-11_feeding",
+   "label": "5/20 Squid 4 Tentacle 1 11-11 \u2014 feeding",
+   "duration_s": 252.5632,
+   "n_channels": 2,
+   "n_events": 2,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-16_feeding",
+   "label": "5/20 Squid 4 Tentacle 1 11-16 \u2014 feeding",
+   "duration_s": 513.5056,
+   "n_channels": 2,
+   "n_events": 8,
+   "paired": false
+  },
+  {
+   "id": "5-20_squid4_tentacle1_11-27_baseline",
+   "label": "5/20 Squid 4 Tentacle 1 11-27 \u2014 baseline",
+   "duration_s": 464.5132,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  }
+ ],
+ "decimated_sr": 2500
+}

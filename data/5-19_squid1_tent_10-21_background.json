@@ -1,0 +1,37 @@
+{
+ "name": "5-19_squid1_tent_10-21_background",
+ "sample_rate": 2500,
+ "n_samples": 1108316,
+ "n_channels": 1,
+ "duration_s": 443.3264,
+ "raw_scales_per_channel": [
+  7.280820754338624
+ ],
+ "filt_scales_per_channel": [
+  8.47253407578326
+ ],
+ "noise_sd_filt": [
+  67.6402587890625
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": 1,
+  "prep": "Tentacle 1",
+  "date": "5/19",
+  "time": "10:21",
+  "purpose": "background (long, 7 min)",
+  "channel_labels": [
+   "ch0"
+  ]
+ },
+ "channel_labels": [
+  "ch0"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

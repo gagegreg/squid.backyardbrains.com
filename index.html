@@ -1,0 +1,861 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Squid Ephys Viewer</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 12px;
+         background: #f8f8f8; color: #222; }
+  h1 { font-size: 1.2em; margin: 0 0 8px 0; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .row > * { flex-shrink: 0; }
+  select, button { font-size: 13px; padding: 5px 9px; border: 1px solid #bbb; background: white; border-radius: 4px; cursor: pointer; }
+  button:hover:not(:disabled) { background: #eef; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; background: #f4f4f4; }
+  button.active { background: #36b; color: white; border-color: #36b; }
+  button.analysis-btn { background: #2c8a3a; color: white; border-color: #2c8a3a; font-weight: 600; padding: 6px 14px; }
+  button.analysis-btn:hover:not(:disabled) { background: #1e6a28; }
+  button.analysis-btn:disabled { background: #aaa; color: #fff; }
+  .meta { font-size: 12px; color: #555; line-height: 1.4; }
+  .canvas-wrap { position: relative; border: 1px solid #aaa; background: #fff; border-radius: 4px; overflow: hidden; }
+  canvas { display: block; cursor: crosshair; }
+  .legend { font-size: 11px; color: #666; padding: 6px 0; }
+  .events { font-size: 11px; color: #444; padding: 6px 0; }
+  .analysis-results { background: #f0f4f8; border: 1px solid #cdd; border-radius: 4px;
+                       padding: 8px 10px; margin-top: 6px; font-size: 12px; min-height: 40px; }
+  .analysis-results table { border-collapse: collapse; width: auto; }
+  .analysis-results td, .analysis-results th { padding: 2px 10px 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
+  .analysis-results th { font-weight: 600; color: #333; }
+  .chan-toggle { font-size: 12px; padding: 3px 7px; border-radius: 12px; cursor: pointer;
+                 border: 1px solid currentColor; user-select: none; }
+  .chan-toggle.off { opacity: 0.3; }
+  input[type=range] { vertical-align: middle; }
+  .epoch-info { font-size: 12px; color: #555; }
+  kbd { font-family: monospace; background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>Squid Tentacle Electrophysiology — Data Viewer</h1>
+
+<div class="row">
+  <label>Session:</label>
+  <select id="session-select"></select>
+  <span class="meta" id="session-meta"></span>
+</div>
+
+<div class="row">
+  <span>Show:</span>
+  <button id="btn-filt" class="active">Filtered (300–3000 Hz)</button>
+  <button id="btn-raw">Raw signal</button>
+  <span style="margin-left:16px;">Zoom:</span>
+  <button data-zoom="1">1 s</button>
+  <button data-zoom="2">2 s</button>
+  <button data-zoom="5" class="active">5 s</button>
+  <button data-zoom="10">10 s</button>
+  <button data-zoom="20">20 s</button>
+  <span style="margin-left:16px;">Channels:</span>
+  <span id="channel-toggles"></span>
+</div>
+
+<div class="row">
+  <span>Gain:</span>
+  <button data-gain="0.5">÷2</button>
+  <input type="range" id="gain-slider" min="-2" max="2.301" step="0.05" value="0" style="width:180px;">
+  <button data-gain="2">×2</button>
+  <button data-gain="reset" id="gain-reset">Reset (1.0×)</button>
+  <span class="meta" id="gain-value">1.00×</span>
+  <span style="margin-left:18px;">Spike threshold:</span>
+  <input type="range" id="thr-slider" min="2" max="8" step="0.1" value="4" style="width:180px;">
+  <span class="meta" id="thr-value">4.0× MAD (adaptive)</span>
+  <button id="thr-reset">Reset (4.0)</button>
+</div>
+
+<div class="row" style="gap:8px;">
+  <button id="prev-btn">◀ Prev</button>
+  <input type="range" id="time-scrubber" min="0" max="100" value="0" step="0.01" style="flex:1; min-width:300px;">
+  <button id="next-btn">Next ▶</button>
+  <span class="meta" id="time-info">0.00 s</span>
+</div>
+
+<div class="row">
+  <span>🔊 Listen:</span>
+  <select id="audio-channel"></select>
+  <button id="play-btn" class="analysis-btn">▶ Play visible window</button>
+  <button id="stop-btn">■ Stop</button>
+  <span class="meta">Plays current window (using whichever signal is shown — Raw or Filtered).</span>
+</div>
+
+<div class="row">
+  <span>Quick jump to event:</span>
+  <span id="event-buttons"></span>
+</div>
+
+<div class="canvas-wrap">
+  <canvas id="waveform" width="1400" height="600"></canvas>
+</div>
+
+<div class="legend">
+  <kbd>Click + drag</kbd> on the canvas to select an epoch for analysis. Selection shown in yellow.
+  &nbsp;|&nbsp; Event markers: shrimp = red, seawater = blue, sponge = green.
+</div>
+
+<div class="row" style="margin-top:8px;">
+  <span class="epoch-info" id="epoch-info">No epoch selected</span>
+  <button id="clear-epoch">Clear selection</button>
+  <button id="firing-rate-btn" class="analysis-btn" disabled>Compute Firing Rate (5×SD)</button>
+  <button id="rms-btn" class="analysis-btn" disabled>Compute RMS</button>
+</div>
+
+<div class="analysis-results" id="results">Select an epoch and click an analysis button.</div>
+
+<script>
+const STATE = {
+  sessions: [],
+  currentMeta: null,
+  rawSamples: null,    // Int16Array, interleaved by channel
+  filtSamples: null,
+  rawScales: [],       // per-channel int16 scale factor (storage)
+  filtScales: [],
+  noiseSD: [],
+  rawRefMax: [],
+  filtRefMax: [],
+  gain: 1.0,           // user-controlled display multiplier
+  thresholdMult: 4.0,  // spike-detection threshold multiplier (× rolling MAD)
+  sr: 2500,
+  showFilt: true,
+  zoomSec: 5,
+  windowStart: 0,
+  visibleChannels: [],
+  // Epoch selection
+  epoch: null,
+  dragStart: null,
+  // Spike detection results
+  spikes: [],          // per-channel arrays of spike sample indices
+  thrWindows: [],      // per-channel arrays of {start, end, thr} for adaptive threshold
+};
+
+const COLORS = ['#1f77b4', '#aec7e8', '#d62728', '#ff9896'];
+const EVENT_COLORS = {1:'#d62728', 2:'#4575b4', 3:'#2ca02c', 0:'#4575b4'};
+const EVENT_NAMES = {1:'shrimp', 2:'seawater', 3:'sponge', 0:'seawater'};
+
+const canvas = document.getElementById('waveform');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const w = document.querySelector('.canvas-wrap').clientWidth;
+  canvas.width = w * window.devicePixelRatio;
+  canvas.height = 600 * window.devicePixelRatio;
+  canvas.style.width = w + 'px';
+  canvas.style.height = '600px';
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ====== Loading ======
+async function loadIndex() {
+  const r = await fetch('data/index.json');
+  const idx = await r.json();
+  STATE.sessions = idx.sessions;
+  const sel = document.getElementById('session-select');
+  for (const s of idx.sessions) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.label} — ${s.n_channels}ch, ${Math.round(s.duration_s)}s, ${s.n_events} events${s.paired ? ', PAIRED' : ''}`;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', () => loadSession(sel.value));
+  if (idx.sessions.length) loadSession(idx.sessions[0].id);
+}
+
+async function loadSession(id) {
+  document.getElementById('results').textContent = 'Loading...';
+  const meta = await (await fetch(`data/${id}.json`)).json();
+  STATE.currentMeta = meta;
+  STATE.sr = meta.sample_rate;
+  STATE.rawScales = meta.raw_scales_per_channel;
+  STATE.filtScales = meta.filt_scales_per_channel;
+  STATE.noiseSD = meta.noise_sd_filt;
+  STATE.spikes = []; // per-channel arrays of spike sample indices
+  STATE.thrWindows = []; // per-channel array of {start, end, thr} for adaptive thresholds
+  STATE.windowStart = 0;
+  STATE.epoch = null;
+  STATE.visibleChannels = meta.channel_labels.map((_, i) => true);
+  STATE.gain = 1.0;
+  document.getElementById('gain-slider').value = 0;
+  document.getElementById('gain-value').textContent = '1.00×';
+
+  const rawBuf = await (await fetch(`data/${id}_raw.bin`)).arrayBuffer();
+  const filtBuf = await (await fetch(`data/${id}_filt.bin`)).arrayBuffer();
+  STATE.rawSamples = new Int16Array(rawBuf);
+  STATE.filtSamples = new Int16Array(filtBuf);
+
+  // Compute per-channel reference max across the WHOLE session (fixed gain)
+  const ncs = meta.n_channels;
+  const N = meta.n_samples;
+  STATE.rawRefMax = new Array(ncs).fill(0);
+  STATE.filtRefMax = new Array(ncs).fill(0);
+  // Use 99.5th percentile of |sample| (robust to a single huge artifact) — approximated by sampling
+  const STEP = Math.max(1, Math.floor(N / 100000));
+  for (let ci = 0; ci < ncs; ci++) {
+    const rawSorted = [];
+    const filtSorted = [];
+    for (let s = 0; s < N; s += STEP) {
+      rawSorted.push(Math.abs(STATE.rawSamples[s * ncs + ci]));
+      filtSorted.push(Math.abs(STATE.filtSamples[s * ncs + ci]));
+    }
+    rawSorted.sort((a,b)=>a-b);
+    filtSorted.sort((a,b)=>a-b);
+    const pIdx = Math.floor(rawSorted.length * 0.995);
+    STATE.rawRefMax[ci] = Math.max(rawSorted[pIdx], 100);
+    STATE.filtRefMax[ci] = Math.max(filtSorted[pIdx], 100);
+    // For filtered, also ensure at least 10× noise SD is visible at gain=1
+    const nsdInts = STATE.noiseSD[ci] * STATE.filtScales[ci];
+    if (nsdInts * 10 > STATE.filtRefMax[ci]) STATE.filtRefMax[ci] = nsdInts * 10;
+  }
+
+  // Initial spike detection with default threshold
+  detectAllSpikes();
+
+  // Update UI
+  const info = meta.info;
+  document.getElementById('session-meta').textContent =
+    `${meta.n_channels} ch, ${meta.sample_rate} Hz, ${meta.duration_s.toFixed(1)} s` +
+    (meta.paired ? ` | sync lag ${info.sync_lag_s?.toFixed(3)}s (r=${info.sync_r?.toFixed(2)})` : '');
+
+  // Audio channel dropdown
+  const ac = document.getElementById('audio-channel');
+  ac.innerHTML = '';
+  meta.channel_labels.forEach((lbl, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = lbl;
+    ac.appendChild(opt);
+  });
+
+  // Channel toggles
+  const ct = document.getElementById('channel-toggles');
+  ct.innerHTML = '';
+  meta.channel_labels.forEach((lbl, i) => {
+    const span = document.createElement('span');
+    span.className = 'chan-toggle';
+    span.style.color = COLORS[i % COLORS.length];
+    span.textContent = lbl;
+    span.addEventListener('click', () => {
+      STATE.visibleChannels[i] = !STATE.visibleChannels[i];
+      span.classList.toggle('off', !STATE.visibleChannels[i]);
+      draw();
+    });
+    ct.appendChild(span);
+  });
+
+  // Event buttons
+  const eb = document.getElementById('event-buttons');
+  eb.innerHTML = '';
+  meta.events.forEach((ev, i) => {
+    const b = document.createElement('button');
+    const lbl = EVENT_NAMES[ev.id] || ev.label || `marker ${ev.id}`;
+    b.textContent = `${lbl} @ ${ev.time_s.toFixed(1)}s`;
+    b.style.borderColor = EVENT_COLORS[ev.id] || '#888';
+    b.style.color = EVENT_COLORS[ev.id] || '#888';
+    b.addEventListener('click', () => {
+      // Place event at the far left of the window so all zoomSec seconds after it are visible
+      STATE.windowStart = Math.max(0, ev.time_s);
+      updateScrubber();
+      draw();
+    });
+    eb.appendChild(b);
+  });
+
+  // Time scrubber
+  const sc = document.getElementById('time-scrubber');
+  sc.max = Math.max(0, meta.duration_s - STATE.zoomSec);
+  sc.step = STATE.zoomSec / 100;
+  sc.value = 0;
+
+  document.getElementById('results').textContent = 'Select an epoch by click+drag, then click an analysis button.';
+  updateEpochUI();
+  draw();
+}
+
+// ====== Drawing ======
+function updateScrubber() {
+  const sc = document.getElementById('time-scrubber');
+  sc.value = STATE.windowStart;
+  sc.max = Math.max(0, STATE.currentMeta.duration_s - STATE.zoomSec);
+  sc.step = STATE.zoomSec / 200;
+  document.getElementById('time-info').textContent =
+    `${STATE.windowStart.toFixed(2)} – ${(STATE.windowStart + STATE.zoomSec).toFixed(2)} s`;
+}
+
+function draw() {
+  if (!STATE.currentMeta) return;
+  const meta = STATE.currentMeta;
+  const W = canvas.width / window.devicePixelRatio;
+  const H = canvas.height / window.devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  const sr = STATE.sr;
+  const startSamp = Math.max(0, Math.floor(STATE.windowStart * sr));
+  const endSamp = Math.min(meta.n_samples, Math.floor((STATE.windowStart + STATE.zoomSec) * sr));
+  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
+  const scales = STATE.showFilt ? STATE.filtScales : STATE.rawScales;
+  const ncs = meta.n_channels;
+
+  // Determine visible channels
+  const visIdx = STATE.visibleChannels.map((v, i) => v ? i : null).filter(x => x !== null);
+  if (visIdx.length === 0) return;
+
+  // Layout: raster panel at top, then waveform channels below
+  const padTop = 20, padBot = 24, padL = 50, padR = 12;
+  const rasterRowH = 14;
+  const rasterGap = 10;
+  const rasterTotalH = visIdx.length * rasterRowH + rasterGap;
+  const chH = (H - padTop - padBot - rasterTotalH) / visIdx.length;
+  const chY0 = padTop + rasterTotalH; // top of waveform area
+
+  // Time axis
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#555';
+  const nticks = 10;
+  for (let i = 0; i <= nticks; i++) {
+    const x = padL + (W - padL - padR) * i / nticks;
+    const t = STATE.windowStart + STATE.zoomSec * i / nticks;
+    ctx.beginPath(); ctx.moveTo(x, H - padBot); ctx.lineTo(x, H - padBot + 4); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillText(t.toFixed(2) + 's', x, H - padBot + 16);
+  }
+
+  // (selection and event markers drawn AFTER channels, see end of draw())
+
+  // Draw raster panel at top — one row per visible channel
+  ctx.font = 'bold 10px sans-serif';
+  visIdx.forEach((ci, k) => {
+    const ry = padTop + k * rasterRowH;
+    // alternating row background
+    ctx.fillStyle = k % 2 ? '#eef2f6' : '#f6f9fb';
+    ctx.fillRect(padL, ry, W - padL - padR, rasterRowH);
+    // colored chip label on the left margin (name + total spike count for the session)
+    const labelColor = COLORS[ci % COLORS.length];
+    ctx.fillStyle = labelColor;
+    ctx.fillRect(0, ry, padL - 2, rasterRowH);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'right';
+    const nTotal = (STATE.spikes[ci] || []).length;
+    ctx.fillText(`${meta.channel_labels[ci]}  (n=${nTotal})`, padL - 5, ry + 10);
+    // spike ticks within visible window
+    const spikes = STATE.spikes[ci] || [];
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const plotW = W - padL - padR;
+    for (const s of spikes) {
+      if (s >= startSamp && s <= endSamp) {
+        const x = padL + (s - startSamp) / (endSamp - startSamp) * plotW;
+        ctx.moveTo(x, ry + 2);
+        ctx.lineTo(x, ry + rasterRowH - 2);
+      }
+    }
+    ctx.stroke();
+  });
+  // Separator line below raster
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, padTop + visIdx.length * rasterRowH + 1);
+  ctx.lineTo(W, padTop + visIdx.length * rasterRowH + 1);
+  ctx.stroke();
+  // "RASTER" label
+  ctx.fillStyle = '#666';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('raster (5×SD)', padL - 5, padTop + visIdx.length * rasterRowH + rasterGap - 1);
+
+  // Draw each visible channel
+  visIdx.forEach((ci, k) => {
+    const y0 = chY0 + chH * k;
+    const yMid = y0 + chH / 2;
+    const yAmp = chH * 0.42;
+    const labelColor = COLORS[ci % COLORS.length];  // only used for label chip
+
+    // Background and channel separator
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(padL, y0, W - padL - padR, chH);
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y0 + chH); ctx.lineTo(W - padR, y0 + chH); ctx.stroke();
+
+    // Zero line
+    ctx.strokeStyle = '#eee';
+    ctx.beginPath(); ctx.moveTo(padL, yMid); ctx.lineTo(W - padR, yMid); ctx.stroke();
+
+    // Channel label — small colored chip with black text
+    ctx.font = 'bold 11px sans-serif';
+    const lbl = meta.channel_labels[ci];
+    const lblW = ctx.measureText(lbl).width;
+    ctx.fillStyle = labelColor;
+    ctx.fillRect(padL + 2, y0 + 2, lblW + 10, 14);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(lbl, padL + 7, y0 + 12);
+
+    // FIXED amplitude scale per channel: based on per-channel reference max from the WHOLE session
+    // Multiplied by user-controlled gain. Higher gain = bigger visible signal (zoom in).
+    const refMax = STATE.showFilt ? STATE.filtRefMax[ci] : STATE.rawRefMax[ci];
+    const ampScale = (yAmp * STATE.gain) / refMax;
+
+    // Draw waveform using min/max binning per pixel — ALWAYS BLACK
+    const plotW = W - padL - padR;
+    const samplesPerPx = (endSamp - startSamp) / plotW;
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (samplesPerPx >= 2) {
+      // Min/max bins
+      for (let px = 0; px < plotW; px++) {
+        const s0 = startSamp + Math.floor(px * samplesPerPx);
+        const s1 = Math.min(endSamp, startSamp + Math.floor((px + 1) * samplesPerPx));
+        let mn = Infinity, mx = -Infinity;
+        for (let s = s0; s < s1; s++) {
+          const v = samples[s * ncs + ci];
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+        const yMin = yMid - mn * ampScale;
+        const yMax = yMid - mx * ampScale;
+        ctx.moveTo(padL + px, yMin);
+        ctx.lineTo(padL + px, yMax);
+      }
+    } else {
+      // Direct sample plot
+      let first = true;
+      for (let s = startSamp; s < endSamp; s++) {
+        const x = padL + (s - startSamp) / samplesPerPx;
+        const y = yMid - samples[s * ncs + ci] * ampScale;
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+
+    // Adaptive threshold line for filtered (k × rolling MAD, step changes per 0.5s window)
+    if (STATE.showFilt && STATE.thrWindows[ci]) {
+      ctx.strokeStyle = 'rgba(220, 0, 0, 0.55)';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let started = false;
+      for (const tw_ of STATE.thrWindows[ci]) {
+        if (tw_.end < startSamp || tw_.start > endSamp) continue;
+        const x0 = padL + (Math.max(tw_.start, startSamp) - startSamp) / (endSamp - startSamp) * (W - padL - padR);
+        const x1 = padL + (Math.min(tw_.end, endSamp) - startSamp) / (endSamp - startSamp) * (W - padL - padR);
+        const yT = yMid - tw_.thr * ampScale;
+        if (!started) { ctx.moveTo(x0, yT); started = true; } else ctx.lineTo(x0, yT);
+        ctx.lineTo(x1, yT);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // ====== Selection epoch — drawn after channels so it shows on top of data ======
+  if (STATE.epoch) {
+    const eStartS = STATE.epoch.startSamp / sr;
+    const eEndS = STATE.epoch.endSamp / sr;
+    if (eEndS > STATE.windowStart && eStartS < STATE.windowStart + STATE.zoomSec) {
+      const xs = Math.max(padL, padL + (eStartS - STATE.windowStart) / STATE.zoomSec * (W - padL - padR));
+      const xe = Math.min(W - padR, padL + (eEndS - STATE.windowStart) / STATE.zoomSec * (W - padL - padR));
+      // Translucent fill on top of waveforms (low alpha so data shows through)
+      ctx.fillStyle = 'rgba(255, 200, 0, 0.22)';
+      ctx.fillRect(xs, padTop, xe - xs, H - padTop - padBot);
+      // Solid edge lines
+      ctx.strokeStyle = '#ff8c00';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(xs, padTop); ctx.lineTo(xs, H - padBot);
+      ctx.moveTo(xe, padTop); ctx.lineTo(xe, H - padBot);
+      ctx.stroke();
+      // Duration label at bottom center of selection
+      const dur = (eEndS - eStartS);
+      const label = `${dur.toFixed(3)} s selected`;
+      ctx.font = 'bold 12px sans-serif';
+      const lw = ctx.measureText(label).width;
+      const xMid = (xs + xe) / 2;
+      ctx.fillStyle = '#ff8c00';
+      ctx.fillRect(xMid - lw/2 - 6, H - padBot - 22, lw + 12, 18);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, xMid, H - padBot - 9);
+      ctx.lineWidth = 1;
+    }
+  }
+
+  // ====== Event markers — drawn LAST so they overlay all channels ======
+  for (const ev of meta.events) {
+    if (ev.time_s >= STATE.windowStart && ev.time_s <= STATE.windowStart + STATE.zoomSec) {
+      const x = padL + (ev.time_s - STATE.windowStart) / STATE.zoomSec * (W - padL - padR);
+      const c = EVENT_COLORS[ev.id] || '#888';
+      // Solid full-height line through every channel
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - padBot); ctx.stroke();
+      // Label pill at the very top
+      const label = (EVENT_NAMES[ev.id] || `m${ev.id}`) + ` @ ${ev.time_s.toFixed(2)}s`;
+      ctx.font = 'bold 12px sans-serif';
+      const tw_ = ctx.measureText(label).width;
+      ctx.fillStyle = c;
+      ctx.fillRect(x + 2, 2, tw_ + 8, 16);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, x + 6, 14);
+    }
+  }
+  ctx.lineWidth = 1;
+}
+
+// ====== Controls ======
+document.getElementById('time-scrubber').addEventListener('input', (e) => {
+  STATE.windowStart = parseFloat(e.target.value);
+  document.getElementById('time-info').textContent =
+    `${STATE.windowStart.toFixed(2)} – ${(STATE.windowStart + STATE.zoomSec).toFixed(2)} s`;
+  draw();
+});
+
+document.getElementById('btn-filt').addEventListener('click', () => {
+  STATE.showFilt = true;
+  document.getElementById('btn-filt').classList.add('active');
+  document.getElementById('btn-raw').classList.remove('active');
+  draw();
+});
+document.getElementById('btn-raw').addEventListener('click', () => {
+  STATE.showFilt = false;
+  document.getElementById('btn-raw').classList.add('active');
+  document.getElementById('btn-filt').classList.remove('active');
+  draw();
+});
+
+document.querySelectorAll('[data-zoom]').forEach(b => {
+  b.addEventListener('click', () => {
+    STATE.zoomSec = parseFloat(b.getAttribute('data-zoom'));
+    document.querySelectorAll('[data-zoom]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    updateScrubber();
+    draw();
+  });
+});
+
+// Gain controls
+const gainSlider = document.getElementById('gain-slider');
+const gainValue = document.getElementById('gain-value');
+function setGain(g, fromSlider) {
+  STATE.gain = Math.max(0.01, Math.min(200, g));
+  gainValue.textContent = STATE.gain.toFixed(2) + '×';
+  if (!fromSlider) gainSlider.value = Math.log10(STATE.gain).toFixed(3);
+  draw();
+}
+gainSlider.addEventListener('input', (e) => {
+  const g = Math.pow(10, parseFloat(e.target.value));
+  setGain(g, true);
+});
+document.querySelectorAll('[data-gain]').forEach(b => {
+  b.addEventListener('click', () => {
+    const v = b.getAttribute('data-gain');
+    if (v === 'reset') setGain(1.0, false);
+    else setGain(STATE.gain * parseFloat(v), false);
+  });
+});
+
+document.getElementById('prev-btn').addEventListener('click', () => {
+  STATE.windowStart = Math.max(0, STATE.windowStart - STATE.zoomSec * 0.9);
+  updateScrubber(); draw();
+});
+document.getElementById('next-btn').addEventListener('click', () => {
+  STATE.windowStart = Math.min(STATE.currentMeta.duration_s - STATE.zoomSec, STATE.windowStart + STATE.zoomSec * 0.9);
+  updateScrubber(); draw();
+});
+
+// ====== Epoch selection by mouse drag ======
+function pxToTime(px) {
+  const W = canvas.width / window.devicePixelRatio;
+  const padL = 50, padR = 12;
+  const plotW = W - padL - padR;
+  const frac = (px - padL) / plotW;
+  return STATE.windowStart + frac * STATE.zoomSec;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  STATE.dragStart = pxToTime(x);
+});
+canvas.addEventListener('mousemove', (e) => {
+  if (STATE.dragStart === null) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const t = pxToTime(x);
+  const startT = Math.min(STATE.dragStart, t);
+  const endT = Math.max(STATE.dragStart, t);
+  STATE.epoch = {
+    startSamp: Math.max(0, Math.floor(startT * STATE.sr)),
+    endSamp: Math.min(STATE.currentMeta.n_samples, Math.ceil(endT * STATE.sr))
+  };
+  updateEpochUI();
+  draw();
+});
+canvas.addEventListener('mouseup', () => { STATE.dragStart = null; });
+canvas.addEventListener('mouseleave', () => { STATE.dragStart = null; });
+
+document.getElementById('clear-epoch').addEventListener('click', () => {
+  STATE.epoch = null; updateEpochUI(); draw();
+});
+
+function updateEpochUI() {
+  const eb = document.getElementById('epoch-info');
+  const fr = document.getElementById('firing-rate-btn');
+  const rm = document.getElementById('rms-btn');
+  if (STATE.epoch) {
+    const dur = (STATE.epoch.endSamp - STATE.epoch.startSamp) / STATE.sr;
+    eb.textContent = `Epoch: ${(STATE.epoch.startSamp / STATE.sr).toFixed(3)} – ${(STATE.epoch.endSamp / STATE.sr).toFixed(3)} s   (duration ${dur.toFixed(3)} s)`;
+    fr.disabled = false; rm.disabled = false;
+  } else {
+    eb.textContent = 'No epoch selected';
+    fr.disabled = true; rm.disabled = true;
+  }
+}
+
+// ====== Analyses ======
+function computeFiringRate() {
+  if (!STATE.epoch) return;
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels;
+  const startSamp = STATE.epoch.startSamp;
+  const endSamp = STATE.epoch.endSamp;
+  const dur = (endSamp - startSamp) / STATE.sr;
+  const out = [];
+  for (let ci = 0; ci < ncs; ci++) {
+    if (!STATE.visibleChannels[ci]) continue;
+    // Count precomputed spikes that fall inside the epoch (matches raster exactly)
+    const spkArr = STATE.spikes[ci] || [];
+    let n = 0;
+    for (const s of spkArr) {
+      if (s >= startSamp && s < endSamp) n++;
+    }
+    out.push({ch: meta.channel_labels[ci], n, rate: n / dur, dur});
+  }
+  showResults(`Firing Rate (${STATE.thresholdMult.toFixed(1)}× rolling MAD, 4 ms refractory, ${dur.toFixed(3)} s epoch)`,
+              out, ['ch', 'n', 'rate'], ['Channel', '# spikes', 'Rate (Hz)']);
+}
+
+function computeRMS() {
+  if (!STATE.epoch) return;
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels;
+  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
+  const scales = STATE.showFilt ? STATE.filtScales : STATE.rawScales;
+  const out = [];
+  for (let ci = 0; ci < ncs; ci++) {
+    if (!STATE.visibleChannels[ci]) continue;
+    let sumSq = 0, n = 0;
+    const scaleCh = scales[ci];
+    for (let i = STATE.epoch.startSamp; i < STATE.epoch.endSamp; i++) {
+      const v = samples[i * ncs + ci] / scaleCh;
+      sumSq += v * v; n++;
+    }
+    const rms = Math.sqrt(sumSq / n);
+    const sdMultiple = STATE.showFilt ? (rms / STATE.noiseSD[ci]) : null;
+    out.push({ch: meta.channel_labels[ci], rms, sdMultiple, n});
+  }
+  const sigLabel = STATE.showFilt ? 'filtered' : 'raw';
+  showResults(`RMS (${sigLabel} signal)`, out, ['ch','rms','sdMultiple'], ['Channel', `RMS (${sigLabel} units)`, '× noise SD']);
+}
+
+function showResults(title, rows, keys, headers) {
+  const el = document.getElementById('results');
+  let html = `<div style="font-weight:600; margin-bottom:4px;">${title}</div>`;
+  html += '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  for (const r of rows) {
+    html += '<tr>' + keys.map(k => {
+      let v = r[k];
+      if (typeof v === 'number') v = (Math.abs(v) < 0.01 || Math.abs(v) > 9999) ? v.toExponential(3) : v.toFixed(3);
+      else if (v === null || v === undefined) v = '—';
+      return `<td>${v}</td>`;
+    }).join('') + '</tr>';
+  }
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+// ====== Audio playback (Web Audio API) ======
+let audioCtx = null;
+let currentSource = null;
+
+function getAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function stopAudio() {
+  if (currentSource) { try { currentSource.stop(); } catch(e){}; currentSource = null; }
+  document.getElementById('play-btn').textContent = '▶ Play visible window';
+}
+
+function playVisibleWindow() {
+  stopAudio();
+  if (!STATE.currentMeta) return;
+  const actx = getAudioContext();
+  if (actx.state === 'suspended') actx.resume();
+
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels;
+  const sr = STATE.sr;
+  const ci = parseInt(document.getElementById('audio-channel').value, 10);
+  if (isNaN(ci)) return;
+
+  const startSamp = Math.max(0, Math.floor(STATE.windowStart * sr));
+  const endSamp = Math.min(meta.n_samples, Math.floor((STATE.windowStart + STATE.zoomSec) * sr));
+  const N = endSamp - startSamp;
+  if (N < 10) return;
+
+  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
+  const scale = STATE.showFilt ? STATE.filtScales[ci] : STATE.rawScales[ci];
+
+  // Extract + normalize to ±0.9 to avoid clipping
+  const src = new Float32Array(N);
+  let maxAbs = 1e-9;
+  for (let i = 0; i < N; i++) {
+    const v = samples[(startSamp + i) * ncs + ci] / scale;
+    src[i] = v;
+    if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+  }
+  const norm = 0.9 / maxAbs;
+  for (let i = 0; i < N; i++) src[i] *= norm;
+
+  // Resample from 2.5 kHz to the audio context's native rate (typically 44100 or 48000)
+  // via linear interpolation — keeps real-time playback speed
+  const outRate = actx.sampleRate;
+  const ratio = outRate / sr;
+  const outN = Math.floor(N * ratio);
+  const outBuf = new Float32Array(outN);
+  for (let i = 0; i < outN; i++) {
+    const t = i / ratio;
+    const i0 = Math.floor(t);
+    const i1 = Math.min(N - 1, i0 + 1);
+    const f = t - i0;
+    outBuf[i] = src[i0] * (1 - f) + src[i1] * f;
+  }
+
+  const audioBuf = actx.createBuffer(1, outN, outRate);
+  audioBuf.copyToChannel(outBuf, 0);
+  const sourceNode = actx.createBufferSource();
+  sourceNode.buffer = audioBuf;
+  sourceNode.connect(actx.destination);
+  sourceNode.start();
+  currentSource = sourceNode;
+  document.getElementById('play-btn').textContent = '▶ Playing… (click to restart)';
+  sourceNode.onended = () => {
+    if (currentSource === sourceNode) {
+      currentSource = null;
+      document.getElementById('play-btn').textContent = '▶ Play visible window';
+    }
+  };
+}
+
+document.getElementById('play-btn').addEventListener('click', playVisibleWindow);
+document.getElementById('stop-btn').addEventListener('click', stopAudio);
+
+// ====== Adaptive spike detection (rolling MAD in 0.5-s windows) ======
+function detectAllSpikes() {
+  if (!STATE.currentMeta) return;
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels;
+  const sr = STATE.sr;
+  const N = meta.n_samples;
+  const winSize = Math.floor(0.5 * sr);   // 0.5-second window
+  const refrSamp = Math.floor(0.004 * sr);
+  const k = STATE.thresholdMult;
+  const t0 = performance.now();
+  STATE.spikes = [];
+  STATE.thrWindows = [];
+  for (let ci = 0; ci < ncs; ci++) {
+    const spk = [];
+    const winList = [];
+    for (let w0 = 0; w0 < N; w0 += winSize) {
+      const w1 = Math.min(N, w0 + winSize);
+      // Median absolute deviation (robust noise estimate, immune to spikes)
+      const buf = new Float64Array(w1 - w0);
+      for (let i = w0; i < w1; i++) buf[i - w0] = STATE.filtSamples[i * ncs + ci];
+      // sort copy for median
+      const sorted = buf.slice().sort();
+      const median = sorted[sorted.length >> 1];
+      for (let i = 0; i < buf.length; i++) buf[i] = Math.abs(buf[i] - median);
+      buf.sort();
+      const mad = buf[buf.length >> 1] / 0.6745;
+      const thr = k * mad;
+      winList.push({start: w0, end: w1, thr});
+      // detect positive crossings in this window
+      let i = w0;
+      while (i < w1) {
+        const v = STATE.filtSamples[i * ncs + ci];
+        if (v > thr) {
+          const jEnd = Math.min(w1, i + refrSamp);
+          let pk = i, pkV = v;
+          for (let j = i + 1; j < jEnd; j++) {
+            const v2 = STATE.filtSamples[j * ncs + ci];
+            if (v2 > pkV) { pkV = v2; pk = j; }
+          }
+          spk.push(pk);
+          i = pk + refrSamp;
+        } else i++;
+      }
+    }
+    STATE.spikes.push(spk);
+    STATE.thrWindows.push(winList);
+  }
+  const dt = performance.now() - t0;
+  const totalSpk = STATE.spikes.reduce((s,a)=>s+a.length, 0);
+  console.log(`Detected ${totalSpk} spikes across ${ncs} channels at ${k.toFixed(1)}× MAD (${dt.toFixed(0)} ms)`);
+}
+
+// Slider events for threshold
+const thrSlider = document.getElementById('thr-slider');
+const thrValueLbl = document.getElementById('thr-value');
+let thrDebounce = null;
+thrSlider.addEventListener('input', (e) => {
+  const k = parseFloat(e.target.value);
+  STATE.thresholdMult = k;
+  thrValueLbl.textContent = `${k.toFixed(1)}× MAD (adaptive)`;
+  clearTimeout(thrDebounce);
+  thrDebounce = setTimeout(() => { detectAllSpikes(); draw(); }, 120);
+});
+document.getElementById('thr-reset').addEventListener('click', () => {
+  STATE.thresholdMult = 4.0;
+  thrSlider.value = 4;
+  thrValueLbl.textContent = '4.0× MAD (adaptive)';
+  detectAllSpikes(); draw();
+});
+
+function safeRun(name, fn) {
+  const el = document.getElementById('results');
+  try {
+    if (!STATE.epoch) {
+      el.innerHTML = `<div style="color:#a00; font-weight:600;">No epoch selected — click and drag on the canvas first.</div>`;
+      return;
+    }
+    el.innerHTML = `<div style="color:#555;">Computing ${name}…</div>`;
+    setTimeout(() => {
+      try { fn(); el.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+      catch (e) { el.innerHTML = `<div style="color:#a00;"><b>${name} failed:</b> ${e.message}<br><pre style="font-size:11px;">${e.stack}</pre></div>`; }
+    }, 10);
+  } catch (e) {
+    el.innerHTML = `<div style="color:#a00;"><b>${name} failed:</b> ${e.message}<br><pre style="font-size:11px;">${e.stack}</pre></div>`;
+  }
+}
+document.getElementById('firing-rate-btn').addEventListener('click', () => safeRun('firing rate', computeFiringRate));
+document.getElementById('rms-btn').addEventListener('click', () => safeRun('RMS', computeRMS));
+
+// ====== Boot ======
+resizeCanvas();
+loadIndex();
+</script>
+
+</body>
+</html>

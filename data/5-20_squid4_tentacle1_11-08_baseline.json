@@ -1,0 +1,42 @@
+{
+ "name": "5-20_squid4_tentacle1_11-08_baseline",
+ "sample_rate": 2500,
+ "n_samples": 475604,
+ "n_channels": 2,
+ "duration_s": 190.2416,
+ "raw_scales_per_channel": [
+  40214.25735208362,
+  33025.54645046567
+ ],
+ "filt_scales_per_channel": [
+  37178.537770392606,
+  35149.57921991466
+ ],
+ "noise_sd_filt": [
+  0.0037944233044981956,
+  0.0037510197144001722
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": 4,
+  "prep": "Tentacle 1",
+  "date": "5/20",
+  "time": "11-08",
+  "purpose": "baseline",
+  "channel_labels": [
+   "iOS-ch0",
+   "iOS-ch1"
+  ]
+ },
+ "channel_labels": [
+  "iOS-ch0",
+  "iOS-ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

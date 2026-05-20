@@ -1,0 +1,53 @@
+{
+ "name": "5-20_squid4_tentacle1_11-11_feeding",
+ "sample_rate": 2500,
+ "n_samples": 631408,
+ "n_channels": 2,
+ "duration_s": 252.5632,
+ "raw_scales_per_channel": [
+  62722.85103596449,
+  45935.2904475772
+ ],
+ "filt_scales_per_channel": [
+  71231.50771200134,
+  55804.75903490476
+ ],
+ "noise_sd_filt": [
+  0.0035409163683652878,
+  0.0035149308387190104
+ ],
+ "events": [
+  {
+   "id": 2,
+   "time_s": 87.46,
+   "label": "seawater"
+  },
+  {
+   "id": 1,
+   "time_s": 166.92,
+   "label": "shrimp"
+  }
+ ],
+ "paired": false,
+ "info": {
+  "squid": 4,
+  "prep": "Tentacle 1",
+  "date": "5/20",
+  "time": "11-11",
+  "purpose": "feeding",
+  "channel_labels": [
+   "iOS-ch0",
+   "iOS-ch1"
+  ]
+ },
+ "channel_labels": [
+  "iOS-ch0",
+  "iOS-ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}
