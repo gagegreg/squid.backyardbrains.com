@@ -1,143 +1,308 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Squid Ephys Viewer</title>
 <style>
-  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 12px;
-         background: #f8f8f8; color: #222; }
-  h1 { font-size: 1.2em; margin: 0 0 8px 0; }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
-  .row > * { flex-shrink: 0; }
-  select, button { font-size: 13px; padding: 5px 9px; border: 1px solid #bbb; background: white; border-radius: 4px; cursor: pointer; }
-  button:hover:not(:disabled) { background: #eef; }
-  button:disabled { opacity: 0.45; cursor: not-allowed; background: #f4f4f4; }
-  button.active { background: #36b; color: white; border-color: #36b; }
-  button.analysis-btn { background: #2c8a3a; color: white; border-color: #2c8a3a; font-weight: 600; padding: 6px 14px; }
-  button.analysis-btn:hover:not(:disabled) { background: #1e6a28; }
-  button.analysis-btn:disabled { background: #aaa; color: #fff; }
-  .meta { font-size: 12px; color: #555; line-height: 1.4; }
-  .canvas-wrap { position: relative; border: 1px solid #aaa; background: #fff; border-radius: 4px; overflow: hidden; }
+  /* ====== Design tokens ====== */
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --surface-alt: #f9fafb;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --text-faint: #9ca3af;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --success: #047857;
+    --success-hover: #065f46;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05);
+    --shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 1px 2px rgba(15, 23, 42, .04);
+    --shadow-lg: 0 4px 12px rgba(15, 23, 42, .08);
+    --radius: 8px;
+    --radius-sm: 6px;
+    --gap: 12px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+
+  .app { max-width: 1500px; margin: 0 auto; padding: 16px; }
+
+  /* ====== Header ====== */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 0 4px 12px;
+  }
+  .app-title { font-size: 18px; font-weight: 700; color: var(--text); margin: 0; }
+  .app-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ====== Card ====== */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); padding: 14px;
+  }
+  .card + .card { margin-top: var(--gap); }
+  .card-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .card-label { font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .04em; }
+  .card-divider { width: 1px; height: 24px; background: var(--border); }
+
+  /* ====== Form elements ====== */
+  select, button, input[type=range] { font-family: inherit; font-size: 13px; }
+  select {
+    padding: 6px 10px; border: 1px solid var(--border-strong); background: white;
+    border-radius: var(--radius-sm); color: var(--text); min-width: 220px;
+    cursor: pointer;
+  }
+  select:hover { border-color: var(--text-muted); }
+  select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+  .btn {
+    padding: 6px 12px; border: 1px solid var(--border-strong); background: white;
+    border-radius: var(--radius-sm); color: var(--text); cursor: pointer;
+    font-weight: 500; transition: all .12s;
+  }
+  .btn:hover:not(:disabled) { background: #f3f4f6; border-color: var(--text-muted); }
+  .btn:active:not(:disabled) { background: #e5e7eb; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.is-active { background: var(--primary); color: white; border-color: var(--primary); }
+  .btn.btn-icon { padding: 4px 8px; font-size: 12px; }
+  .btn.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  .btn-success {
+    background: var(--success); color: white; border-color: var(--success); font-weight: 600;
+  }
+  .btn-success:hover:not(:disabled) { background: var(--success-hover); border-color: var(--success-hover); }
+  .btn-success:disabled { background: #9ca3af; border-color: #9ca3af; color: white; }
+
+  .btn-group { display: inline-flex; }
+  .btn-group .btn { border-radius: 0; border-right-width: 0; }
+  .btn-group .btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+  .btn-group .btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-right-width: 1px; }
+  .btn-group .btn.is-active { z-index: 1; }
+
+  input[type=range] {
+    -webkit-appearance: none; width: 180px; height: 4px; border-radius: 2px;
+    background: var(--border-strong); outline: none; padding: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--primary); cursor: pointer; border: 2px solid white; box-shadow: var(--shadow-sm);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--primary);
+    cursor: pointer; border: 2px solid white; box-shadow: var(--shadow-sm);
+  }
+
+  /* ====== Channel chips with integrated play button ====== */
+  .channel-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ch-chip {
+    display: inline-flex; align-items: center; gap: 0; border-radius: var(--radius-sm);
+    border: 1px solid; background: white; overflow: hidden; user-select: none;
+    transition: opacity .12s;
+  }
+  .ch-chip.is-hidden { opacity: .3; }
+  .ch-toggle {
+    padding: 5px 10px; cursor: pointer; font-weight: 600; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ch-toggle .swatch {
+    width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+  }
+  .ch-play {
+    padding: 5px 8px; cursor: pointer; border-left: 1px solid currentColor;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; line-height: 1;
+  }
+  .ch-play:hover { background: rgba(0,0,0,.05); }
+  .ch-play.is-playing { background: currentColor; color: white !important; }
+  .ch-play.is-playing svg { fill: white; }
+  .ch-play svg { width: 12px; height: 12px; fill: currentColor; display: block; }
+
+  /* ====== Time scrubber row ====== */
+  .scrubber-row { display: flex; gap: 10px; align-items: center; }
+  .scrubber-row input[type=range] { flex: 1; width: auto; }
+  .time-pill {
+    padding: 4px 10px; background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; font-size: 12px;
+    color: var(--text); white-space: nowrap;
+  }
+
+  /* ====== Event jump buttons ====== */
+  .event-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .event-btn {
+    padding: 4px 10px; border: 1px solid currentColor; background: white;
+    border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background .12s;
+  }
+  .event-btn:hover { background: currentColor; color: white !important; }
+
+  /* ====== Canvas ====== */
+  .canvas-wrap {
+    position: relative; background: white; border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
   canvas { display: block; cursor: crosshair; }
-  .legend { font-size: 11px; color: #666; padding: 6px 0; }
-  .events { font-size: 11px; color: #444; padding: 6px 0; }
-  .analysis-results { background: #f0f4f8; border: 1px solid #cdd; border-radius: 4px;
-                       padding: 8px 10px; margin-top: 6px; font-size: 12px; min-height: 40px; }
-  .analysis-results table { border-collapse: collapse; width: auto; }
-  .analysis-results td, .analysis-results th { padding: 2px 10px 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
-  .analysis-results th { font-weight: 600; color: #333; }
-  .chan-toggle { font-size: 12px; padding: 3px 7px; border-radius: 12px; cursor: pointer;
-                 border: 1px solid currentColor; user-select: none; }
-  .chan-toggle.off { opacity: 0.3; }
-  input[type=range] { vertical-align: middle; }
-  .epoch-info { font-size: 12px; color: #555; }
-  kbd { font-family: monospace; background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .canvas-hint {
+    padding: 8px 14px; font-size: 12px; color: var(--text-muted);
+    border-top: 1px solid var(--border); background: var(--surface-alt);
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .canvas-hint kbd {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px;
+    background: white; padding: 2px 6px; border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text);
+  }
+  .legend-dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
+
+  /* ====== Analysis panel ====== */
+  .analysis-card { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }
+  .epoch-display {
+    flex: 1; min-width: 240px; padding: 8px 12px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  .epoch-display .muted { color: var(--text-muted); }
+
+  .results {
+    padding: 12px 14px; background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px; min-height: 44px;
+  }
+  .results h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .results table { border-collapse: collapse; }
+  .results th { text-align: left; padding: 4px 14px 4px 0; font-weight: 600;
+    color: var(--text-muted); font-size: 12px; border-bottom: 1px solid var(--border); }
+  .results td { padding: 4px 14px 4px 0; font-variant-numeric: tabular-nums; }
+
+  /* ====== Helpers ====== */
+  .row-label { font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .meta { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .grow { flex: 1; }
+  .stack { display: flex; flex-direction: column; gap: 4px; }
 </style>
 </head>
 <body>
 
-<h1>Squid Tentacle Electrophysiology — Data Viewer</h1>
+<div class="app">
 
-<div class="row">
-  <label>Session:</label>
-  <select id="session-select"></select>
-  <span class="meta" id="session-meta"></span>
+  <!-- ====== Header ====== -->
+  <header class="app-header">
+    <div>
+      <h1 class="app-title">Squid Ephys Viewer</h1>
+      <div class="app-subtitle" id="session-meta">Loading…</div>
+    </div>
+    <select id="session-select" aria-label="Session"></select>
+  </header>
+
+  <!-- ====== Display controls ====== -->
+  <div class="card">
+    <div class="card-row">
+      <span class="row-label">Signal</span>
+      <div class="btn-group">
+        <button id="btn-filt" class="btn is-active">Filtered</button>
+        <button id="btn-raw" class="btn">Raw</button>
+      </div>
+
+      <span class="card-divider"></span>
+      <span class="row-label">Zoom</span>
+      <div class="btn-group">
+        <button class="btn btn-sm" data-zoom="1">1 s</button>
+        <button class="btn btn-sm" data-zoom="2">2 s</button>
+        <button class="btn btn-sm is-active" data-zoom="5">5 s</button>
+        <button class="btn btn-sm" data-zoom="10">10 s</button>
+        <button class="btn btn-sm" data-zoom="20">20 s</button>
+      </div>
+
+      <span class="card-divider"></span>
+      <span class="row-label">Channels</span>
+      <div class="channel-strip" id="channel-strip"></div>
+    </div>
+
+    <div class="card-row" style="margin-top: 12px;">
+      <span class="row-label">Gain</span>
+      <button class="btn btn-sm" data-gain="0.5">−</button>
+      <input type="range" id="gain-slider" min="-2" max="2.301" step="0.05" value="0">
+      <button class="btn btn-sm" data-gain="2">+</button>
+      <button class="btn btn-sm" data-gain="reset" id="gain-reset">Reset</button>
+      <span class="meta" id="gain-value">1.00×</span>
+
+      <span class="card-divider"></span>
+      <span class="row-label">Spike threshold</span>
+      <input type="range" id="thr-slider" min="1.5" max="12" step="0.1" value="4">
+      <span class="meta" id="thr-value">4.0× noise SD</span>
+      <button class="btn btn-sm" id="thr-reset">Reset</button>
+    </div>
+  </div>
+
+  <!-- ====== Time scrubber + events ====== -->
+  <div class="card">
+    <div class="scrubber-row">
+      <button id="prev-btn" class="btn">◀ Prev</button>
+      <input type="range" id="time-scrubber" min="0" max="100" value="0" step="0.01">
+      <button id="next-btn" class="btn">Next ▶</button>
+      <span class="time-pill" id="time-info">0.00 – 5.00 s</span>
+    </div>
+    <div class="card-row" style="margin-top: 12px;" id="event-row">
+      <span class="row-label">Events</span>
+      <span class="event-list" id="event-buttons"></span>
+    </div>
+  </div>
+
+  <!-- ====== Canvas ====== -->
+  <div class="canvas-wrap" style="margin-top: 12px;">
+    <canvas id="waveform" width="1400" height="600"></canvas>
+    <div class="canvas-hint">
+      <span><kbd>click + drag</kbd> on the canvas to select an epoch for analysis</span>
+      <span>•</span>
+      <span><span class="legend-dot" style="background:#dc2626"></span> shrimp</span>
+      <span><span class="legend-dot" style="background:#2c7fb8"></span> seawater</span>
+      <span><span class="legend-dot" style="background:#047857"></span> sponge</span>
+    </div>
+  </div>
+
+  <!-- ====== Analysis panel ====== -->
+  <div class="card" style="margin-top: 12px;">
+    <div class="card-row">
+      <div class="epoch-display" id="epoch-info">
+        <span class="muted">No epoch selected — click and drag on the canvas to choose one.</span>
+      </div>
+      <button id="clear-epoch" class="btn">Clear selection</button>
+      <button id="firing-rate-btn" class="btn btn-success" disabled>Compute firing rate</button>
+      <button id="rms-btn" class="btn btn-success" disabled>Compute RMS</button>
+    </div>
+    <div class="results" id="results" style="margin-top: 12px;">
+      <span class="muted">Select an epoch and click an analysis button to see results.</span>
+    </div>
+  </div>
+
 </div>
-
-<div class="row">
-  <span>Show:</span>
-  <button id="btn-filt" class="active">Filtered (300–3000 Hz)</button>
-  <button id="btn-raw">Raw signal</button>
-  <span style="margin-left:16px;">Zoom:</span>
-  <button data-zoom="1">1 s</button>
-  <button data-zoom="2">2 s</button>
-  <button data-zoom="5" class="active">5 s</button>
-  <button data-zoom="10">10 s</button>
-  <button data-zoom="20">20 s</button>
-  <span style="margin-left:16px;">Channels:</span>
-  <span id="channel-toggles"></span>
-</div>
-
-<div class="row">
-  <span>Gain:</span>
-  <button data-gain="0.5">÷2</button>
-  <input type="range" id="gain-slider" min="-2" max="2.301" step="0.05" value="0" style="width:180px;">
-  <button data-gain="2">×2</button>
-  <button data-gain="reset" id="gain-reset">Reset (1.0×)</button>
-  <span class="meta" id="gain-value">1.00×</span>
-  <span style="margin-left:18px;">Spike threshold:</span>
-  <input type="range" id="thr-slider" min="1.5" max="12" step="0.1" value="4" style="width:200px;">
-  <span class="meta" id="thr-value">4.0× noise SD</span>
-  <button id="thr-reset">Reset (4.0)</button>
-</div>
-
-<div class="row" style="gap:8px;">
-  <button id="prev-btn">◀ Prev</button>
-  <input type="range" id="time-scrubber" min="0" max="100" value="0" step="0.01" style="flex:1; min-width:300px;">
-  <button id="next-btn">Next ▶</button>
-  <span class="meta" id="time-info">0.00 s</span>
-</div>
-
-<div class="row">
-  <span>🔊 Listen:</span>
-  <select id="audio-channel"></select>
-  <button id="play-btn" class="analysis-btn">▶ Play visible window</button>
-  <button id="stop-btn">■ Stop</button>
-  <span class="meta">Plays current window (using whichever signal is shown — Raw or Filtered).</span>
-</div>
-
-<div class="row">
-  <span>Quick jump to event:</span>
-  <span id="event-buttons"></span>
-</div>
-
-<div class="canvas-wrap">
-  <canvas id="waveform" width="1400" height="600"></canvas>
-</div>
-
-<div class="legend">
-  <kbd>Click + drag</kbd> on the canvas to select an epoch for analysis. Selection shown in yellow.
-  &nbsp;|&nbsp; Event markers: shrimp = red, seawater = blue, sponge = green.
-</div>
-
-<div class="row" style="margin-top:8px;">
-  <span class="epoch-info" id="epoch-info">No epoch selected</span>
-  <button id="clear-epoch">Clear selection</button>
-  <button id="firing-rate-btn" class="analysis-btn" disabled>Compute Firing Rate (5×SD)</button>
-  <button id="rms-btn" class="analysis-btn" disabled>Compute RMS</button>
-</div>
-
-<div class="analysis-results" id="results">Select an epoch and click an analysis button.</div>
 
 <script>
 const STATE = {
-  sessions: [],
-  currentMeta: null,
-  rawSamples: null,    // Int16Array, interleaved by channel
-  filtSamples: null,
-  rawScales: [],       // per-channel int16 scale factor (storage)
-  filtScales: [],
-  noiseSD: [],
-  rawRefMax: [],
-  filtRefMax: [],
-  gain: 1.0,           // user-controlled display multiplier
-  thresholdMult: 4.0,  // spike-detection threshold multiplier (× rolling MAD)
-  sr: 2500,
-  showFilt: true,
-  zoomSec: 5,
-  windowStart: 0,
+  sessions: [], currentMeta: null,
+  rawSamples: null, filtSamples: null,
+  rawScales: [], filtScales: [], noiseSD: [],
+  rawRefMax: [], filtRefMax: [],
+  gain: 1.0, thresholdMult: 4.0,
+  sr: 2500, showFilt: true,
+  zoomSec: 5, windowStart: 0,
   visibleChannels: [],
-  // Epoch selection
-  epoch: null,
-  dragStart: null,
-  // Spike detection results
-  spikes: [],          // per-channel arrays of spike sample indices
-  thrWindows: [],      // per-channel arrays of {start, end, thr} for adaptive threshold
+  epoch: null, dragStart: null,
+  spikes: [], perChannelThr: [],
 };
 
-const COLORS = ['#1f77b4', '#aec7e8', '#d62728', '#ff9896'];
-const EVENT_COLORS = {1:'#d62728', 2:'#4575b4', 3:'#2ca02c', 0:'#4575b4'};
-const EVENT_NAMES = {1:'shrimp', 2:'seawater', 3:'sponge', 0:'seawater'};
+const COLORS = ['#2563eb', '#0891b2', '#dc2626', '#f59e0b'];
+const EVENT_COLORS = {1:'#dc2626', 2:'#2c7fb8', 3:'#047857', 0:'#2c7fb8'};
+const EVENT_NAMES  = {1:'shrimp',  2:'seawater', 3:'sponge', 0:'seawater'};
 
 const canvas = document.getElementById('waveform');
 const ctx = canvas.getContext('2d');
@@ -146,14 +311,13 @@ function resizeCanvas() {
   const w = document.querySelector('.canvas-wrap').clientWidth;
   canvas.width = w * window.devicePixelRatio;
   canvas.height = 600 * window.devicePixelRatio;
-  canvas.style.width = w + 'px';
-  canvas.style.height = '600px';
+  canvas.style.width = w + 'px'; canvas.style.height = '600px';
   ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
   draw();
 }
 window.addEventListener('resize', resizeCanvas);
 
-// ====== Loading ======
+// ============ Loading ============
 async function loadIndex() {
   const r = await fetch('data/index.json');
   const idx = await r.json();
@@ -162,7 +326,7 @@ async function loadIndex() {
   for (const s of idx.sessions) {
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `${s.label} — ${s.n_channels}ch, ${Math.round(s.duration_s)}s, ${s.n_events} events${s.paired ? ', PAIRED' : ''}`;
+    opt.textContent = `${s.label} — ${s.n_channels}ch · ${Math.round(s.duration_s)}s · ${s.n_events}ev`;
     sel.appendChild(opt);
   }
   sel.addEventListener('change', () => loadSession(sel.value));
@@ -170,18 +334,18 @@ async function loadIndex() {
 }
 
 async function loadSession(id) {
-  document.getElementById('results').textContent = 'Loading...';
+  stopAudio();
+  document.getElementById('results').innerHTML = '<span class="muted">Loading session…</span>';
   const meta = await (await fetch(`data/${id}.json`)).json();
   STATE.currentMeta = meta;
   STATE.sr = meta.sample_rate;
   STATE.rawScales = meta.raw_scales_per_channel;
   STATE.filtScales = meta.filt_scales_per_channel;
   STATE.noiseSD = meta.noise_sd_filt;
-  STATE.spikes = []; // per-channel arrays of spike sample indices
-  STATE.thrWindows = []; // per-channel array of {start, end, thr} for adaptive thresholds
+  STATE.spikes = []; STATE.perChannelThr = [];
   STATE.windowStart = 0;
   STATE.epoch = null;
-  STATE.visibleChannels = meta.channel_labels.map((_, i) => true);
+  STATE.visibleChannels = meta.channel_labels.map(() => true);
   STATE.gain = 1.0;
   document.getElementById('gain-slider').value = 0;
   document.getElementById('gain-value').textContent = '1.00×';
@@ -191,101 +355,206 @@ async function loadSession(id) {
   STATE.rawSamples = new Int16Array(rawBuf);
   STATE.filtSamples = new Int16Array(filtBuf);
 
-  // Compute per-channel reference max across the WHOLE session (fixed gain)
-  const ncs = meta.n_channels;
-  const N = meta.n_samples;
+  // Pre-compute per-channel reference max
+  const ncs = meta.n_channels, N = meta.n_samples;
   STATE.rawRefMax = new Array(ncs).fill(0);
   STATE.filtRefMax = new Array(ncs).fill(0);
-  // Use 99.5th percentile of |sample| (robust to a single huge artifact) — approximated by sampling
   const STEP = Math.max(1, Math.floor(N / 100000));
   for (let ci = 0; ci < ncs; ci++) {
-    const rawSorted = [];
-    const filtSorted = [];
+    const rArr = [], fArr = [];
     for (let s = 0; s < N; s += STEP) {
-      rawSorted.push(Math.abs(STATE.rawSamples[s * ncs + ci]));
-      filtSorted.push(Math.abs(STATE.filtSamples[s * ncs + ci]));
+      rArr.push(Math.abs(STATE.rawSamples[s*ncs+ci]));
+      fArr.push(Math.abs(STATE.filtSamples[s*ncs+ci]));
     }
-    rawSorted.sort((a,b)=>a-b);
-    filtSorted.sort((a,b)=>a-b);
-    const pIdx = Math.floor(rawSorted.length * 0.995);
-    STATE.rawRefMax[ci] = Math.max(rawSorted[pIdx], 100);
-    STATE.filtRefMax[ci] = Math.max(filtSorted[pIdx], 100);
-    // For filtered, also ensure at least 10× noise SD is visible at gain=1
+    rArr.sort((a,b)=>a-b); fArr.sort((a,b)=>a-b);
+    const pIdx = Math.floor(rArr.length * 0.995);
+    STATE.rawRefMax[ci] = Math.max(rArr[pIdx], 100);
+    STATE.filtRefMax[ci] = Math.max(fArr[pIdx], 100);
     const nsdInts = STATE.noiseSD[ci] * STATE.filtScales[ci];
     if (nsdInts * 10 > STATE.filtRefMax[ci]) STATE.filtRefMax[ci] = nsdInts * 10;
   }
-
-  // Initial spike detection with default threshold
   detectAllSpikes();
 
-  // Update UI
-  const info = meta.info;
-  document.getElementById('session-meta').textContent =
-    `${meta.n_channels} ch, ${meta.sample_rate} Hz, ${meta.duration_s.toFixed(1)} s` +
-    (meta.paired ? ` | sync lag ${info.sync_lag_s?.toFixed(3)}s (r=${info.sync_r?.toFixed(2)})` : '');
+  // Session metadata
+  const info = meta.info || {};
+  const parts = [
+    `${meta.n_channels} channel${meta.n_channels===1?'':'s'}`,
+    `${meta.sample_rate} Hz`,
+    `${meta.duration_s.toFixed(1)} s`,
+    `${meta.events.length} event${meta.events.length===1?'':'s'}`,
+  ];
+  if (meta.paired && info.sync_lag_s != null) parts.push(`sync lag ${info.sync_lag_s.toFixed(3)}s`);
+  document.getElementById('session-meta').textContent = parts.join(' · ');
 
-  // Audio channel dropdown
-  const ac = document.getElementById('audio-channel');
-  ac.innerHTML = '';
-  meta.channel_labels.forEach((lbl, i) => {
-    const opt = document.createElement('option');
-    opt.value = i; opt.textContent = lbl;
-    ac.appendChild(opt);
-  });
-
-  // Channel toggles
-  const ct = document.getElementById('channel-toggles');
+  // Channel strip with integrated play buttons
+  const ct = document.getElementById('channel-strip');
   ct.innerHTML = '';
   meta.channel_labels.forEach((lbl, i) => {
-    const span = document.createElement('span');
-    span.className = 'chan-toggle';
-    span.style.color = COLORS[i % COLORS.length];
-    span.textContent = lbl;
-    span.addEventListener('click', () => {
+    const color = COLORS[i % COLORS.length];
+    const chip = document.createElement('span');
+    chip.className = 'ch-chip';
+    chip.style.color = color;
+    chip.style.borderColor = color;
+    chip.innerHTML = `
+      <span class="ch-toggle" data-ci="${i}" title="Show / hide channel">
+        <span class="swatch" style="background:${color}"></span>
+        <span style="color:#111827">${lbl}</span>
+      </span>
+      <span class="ch-play" data-ci="${i}" title="Play this channel">
+        <svg viewBox="0 0 12 12"><polygon points="2,1 11,6 2,11"/></svg>
+      </span>
+    `;
+    ct.appendChild(chip);
+    chip.querySelector('.ch-toggle').addEventListener('click', () => {
       STATE.visibleChannels[i] = !STATE.visibleChannels[i];
-      span.classList.toggle('off', !STATE.visibleChannels[i]);
+      chip.classList.toggle('is-hidden', !STATE.visibleChannels[i]);
       draw();
     });
-    ct.appendChild(span);
+    chip.querySelector('.ch-play').addEventListener('click', () => playChannel(i, chip));
   });
 
   // Event buttons
   const eb = document.getElementById('event-buttons');
   eb.innerHTML = '';
-  meta.events.forEach((ev, i) => {
-    const b = document.createElement('button');
-    const lbl = EVENT_NAMES[ev.id] || ev.label || `marker ${ev.id}`;
-    b.textContent = `${lbl} @ ${ev.time_s.toFixed(1)}s`;
-    b.style.borderColor = EVENT_COLORS[ev.id] || '#888';
-    b.style.color = EVENT_COLORS[ev.id] || '#888';
-    b.addEventListener('click', () => {
-      // Place event at the far left of the window so all zoomSec seconds after it are visible
-      STATE.windowStart = Math.max(0, ev.time_s);
-      updateScrubber();
-      draw();
+  if (meta.events.length === 0) {
+    eb.innerHTML = '<span class="meta">no events in this session</span>';
+  } else {
+    meta.events.forEach(ev => {
+      const lbl = EVENT_NAMES[ev.id] || ev.label || `marker ${ev.id}`;
+      const c = EVENT_COLORS[ev.id] || '#6b7280';
+      const b = document.createElement('button');
+      b.className = 'event-btn';
+      b.style.color = c;
+      b.textContent = `${lbl} @ ${ev.time_s.toFixed(1)}s`;
+      b.addEventListener('click', () => {
+        STATE.windowStart = Math.max(0, ev.time_s);
+        updateScrubber(); draw();
+      });
+      eb.appendChild(b);
     });
-    eb.appendChild(b);
-  });
+  }
 
   // Time scrubber
   const sc = document.getElementById('time-scrubber');
   sc.max = Math.max(0, meta.duration_s - STATE.zoomSec);
-  sc.step = STATE.zoomSec / 100;
-  sc.value = 0;
+  sc.step = STATE.zoomSec / 200; sc.value = 0;
+  updateTimeInfo();
 
-  document.getElementById('results').textContent = 'Select an epoch by click+drag, then click an analysis button.';
-  updateEpochUI();
-  draw();
+  document.getElementById('results').innerHTML =
+    '<span class="muted">Select an epoch (click & drag on canvas) and click an analysis button.</span>';
+  updateEpochUI(); draw();
 }
 
-// ====== Drawing ======
-function updateScrubber() {
-  const sc = document.getElementById('time-scrubber');
-  sc.value = STATE.windowStart;
-  sc.max = Math.max(0, STATE.currentMeta.duration_s - STATE.zoomSec);
-  sc.step = STATE.zoomSec / 200;
+// ============ Spike detection ============
+function detectAllSpikes() {
+  if (!STATE.currentMeta) return;
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels, sr = STATE.sr, N = meta.n_samples;
+  const refrSamp = Math.floor(0.004 * sr);
+  const k = STATE.thresholdMult;
+  STATE.spikes = []; STATE.perChannelThr = [];
+  for (let ci = 0; ci < ncs; ci++) {
+    const nsdInts = STATE.noiseSD[ci] * STATE.filtScales[ci];
+    const thr = k * nsdInts;
+    STATE.perChannelThr.push(thr);
+    const spk = []; let i = 0;
+    while (i < N) {
+      const v = STATE.filtSamples[i*ncs+ci];
+      if (v > thr) {
+        const jEnd = Math.min(N, i + refrSamp);
+        let pk = i, pkV = v;
+        for (let j = i+1; j < jEnd; j++) {
+          const v2 = STATE.filtSamples[j*ncs+ci];
+          if (v2 > pkV) { pkV = v2; pk = j; }
+        }
+        spk.push(pk); i = pk + refrSamp;
+      } else i++;
+    }
+    STATE.spikes.push(spk);
+  }
+}
+
+// ============ Audio playback ============
+let audioCtx = null, currentSource = null, currentChipBtn = null;
+
+function getAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function stopAudio() {
+  if (currentSource) { try { currentSource.stop(); } catch(e){} currentSource = null; }
+  if (currentChipBtn) {
+    currentChipBtn.classList.remove('is-playing');
+    currentChipBtn.innerHTML = '<svg viewBox="0 0 12 12"><polygon points="2,1 11,6 2,11"/></svg>';
+    currentChipBtn = null;
+  }
+}
+
+function playChannel(ci, chip) {
+  // toggle: if already playing this chip, stop
+  const btn = chip.querySelector('.ch-play');
+  if (currentChipBtn === btn) { stopAudio(); return; }
+  stopAudio();
+  if (!STATE.currentMeta) return;
+  const actx = getAudioContext();
+  if (actx.state === 'suspended') actx.resume();
+
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels, sr = STATE.sr;
+  const startSamp = Math.max(0, Math.floor(STATE.windowStart * sr));
+  const endSamp = Math.min(meta.n_samples, Math.floor((STATE.windowStart + STATE.zoomSec) * sr));
+  const N = endSamp - startSamp;
+  if (N < 10) return;
+  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
+  const scale = STATE.showFilt ? STATE.filtScales[ci] : STATE.rawScales[ci];
+  const src = new Float32Array(N);
+  let maxAbs = 1e-9;
+  for (let i = 0; i < N; i++) {
+    const v = samples[(startSamp + i) * ncs + ci] / scale;
+    src[i] = v;
+    if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+  }
+  const norm = 0.9 / maxAbs;
+  for (let i = 0; i < N; i++) src[i] *= norm;
+  const outRate = actx.sampleRate;
+  const ratio = outRate / sr;
+  const outN = Math.floor(N * ratio);
+  const outBuf = new Float32Array(outN);
+  for (let i = 0; i < outN; i++) {
+    const t = i / ratio;
+    const i0 = Math.floor(t), i1 = Math.min(N - 1, i0 + 1);
+    const f = t - i0;
+    outBuf[i] = src[i0] * (1 - f) + src[i1] * f;
+  }
+  const audioBuf = actx.createBuffer(1, outN, outRate);
+  audioBuf.copyToChannel(outBuf, 0);
+  const sourceNode = actx.createBufferSource();
+  sourceNode.buffer = audioBuf;
+  sourceNode.connect(actx.destination);
+  sourceNode.start();
+  currentSource = sourceNode;
+  currentChipBtn = btn;
+  btn.classList.add('is-playing');
+  // change icon to stop (square)
+  btn.innerHTML = '<svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8"/></svg>';
+  sourceNode.onended = () => {
+    if (currentSource === sourceNode) stopAudio();
+  };
+}
+
+// ============ Drawing ============
+function updateTimeInfo() {
   document.getElementById('time-info').textContent =
     `${STATE.windowStart.toFixed(2)} – ${(STATE.windowStart + STATE.zoomSec).toFixed(2)} s`;
+}
+
+function updateScrubber() {
+  const sc = document.getElementById('time-scrubber');
+  sc.max = Math.max(0, STATE.currentMeta.duration_s - STATE.zoomSec);
+  sc.step = STATE.zoomSec / 200;
+  sc.value = STATE.windowStart;
+  updateTimeInfo();
 }
 
 function draw() {
@@ -294,31 +563,25 @@ function draw() {
   const W = canvas.width / window.devicePixelRatio;
   const H = canvas.height / window.devicePixelRatio;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
 
   const sr = STATE.sr;
   const startSamp = Math.max(0, Math.floor(STATE.windowStart * sr));
   const endSamp = Math.min(meta.n_samples, Math.floor((STATE.windowStart + STATE.zoomSec) * sr));
   const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
-  const scales = STATE.showFilt ? STATE.filtScales : STATE.rawScales;
   const ncs = meta.n_channels;
-
-  // Determine visible channels
   const visIdx = STATE.visibleChannels.map((v, i) => v ? i : null).filter(x => x !== null);
   if (visIdx.length === 0) return;
 
-  // Layout: raster panel at top, then waveform channels below
-  const padTop = 20, padBot = 24, padL = 50, padR = 12;
-  const rasterRowH = 14;
-  const rasterGap = 10;
+  const padTop = 22, padBot = 28, padL = 56, padR = 16;
+  const rasterRowH = 14, rasterGap = 10;
   const rasterTotalH = visIdx.length * rasterRowH + rasterGap;
   const chH = (H - padTop - padBot - rasterTotalH) / visIdx.length;
-  const chY0 = padTop + rasterTotalH; // top of waveform area
+  const chY0 = padTop + rasterTotalH;
 
-  // Time axis
-  ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.font = '11px sans-serif';
-  ctx.fillStyle = '#555';
+  // Time axis ticks at bottom
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1; ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillStyle = '#6b7280';
   const nticks = 10;
   for (let i = 0; i <= nticks; i++) {
     const x = padL + (W - padL - padR) * i / nticks;
@@ -328,216 +591,167 @@ function draw() {
     ctx.fillText(t.toFixed(2) + 's', x, H - padBot + 16);
   }
 
-  // (selection and event markers drawn AFTER channels, see end of draw())
-
-  // Draw raster panel at top — one row per visible channel
-  ctx.font = 'bold 10px sans-serif';
+  // Raster panel
+  ctx.font = 'bold 10px -apple-system, sans-serif';
   visIdx.forEach((ci, k) => {
     const ry = padTop + k * rasterRowH;
-    // alternating row background
-    ctx.fillStyle = k % 2 ? '#eef2f6' : '#f6f9fb';
+    ctx.fillStyle = k % 2 ? '#f3f4f6' : '#f9fafb';
     ctx.fillRect(padL, ry, W - padL - padR, rasterRowH);
-    // colored chip label on the left margin (name + total spike count for the session)
     const labelColor = COLORS[ci % COLORS.length];
     ctx.fillStyle = labelColor;
     ctx.fillRect(0, ry, padL - 2, rasterRowH);
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'right';
     const nTotal = (STATE.spikes[ci] || []).length;
-    ctx.fillText(`${meta.channel_labels[ci]}  (n=${nTotal})`, padL - 5, ry + 10);
-    // spike ticks within visible window
+    ctx.fillText(`${meta.channel_labels[ci]} (n=${nTotal})`, padL - 5, ry + 10);
     const spikes = STATE.spikes[ci] || [];
-    ctx.strokeStyle = '#111';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 1; ctx.beginPath();
     const plotW = W - padL - padR;
     for (const s of spikes) {
       if (s >= startSamp && s <= endSamp) {
         const x = padL + (s - startSamp) / (endSamp - startSamp) * plotW;
-        ctx.moveTo(x, ry + 2);
-        ctx.lineTo(x, ry + rasterRowH - 2);
+        ctx.moveTo(x, ry + 2); ctx.lineTo(x, ry + rasterRowH - 2);
       }
     }
     ctx.stroke();
   });
-  // Separator line below raster
-  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, padTop + visIdx.length * rasterRowH + 1);
   ctx.lineTo(W, padTop + visIdx.length * rasterRowH + 1);
   ctx.stroke();
-  // "RASTER" label
-  ctx.fillStyle = '#666';
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('raster (5×SD)', padL - 5, padTop + visIdx.length * rasterRowH + rasterGap - 1);
+  ctx.fillStyle = '#9ca3af'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText('raster (k×SD)', padL - 5, padTop + visIdx.length * rasterRowH + rasterGap - 1);
 
-  // Draw each visible channel
+  // Channels
   visIdx.forEach((ci, k) => {
     const y0 = chY0 + chH * k;
     const yMid = y0 + chH / 2;
     const yAmp = chH * 0.42;
-    const labelColor = COLORS[ci % COLORS.length];  // only used for label chip
-
-    // Background and channel separator
-    ctx.fillStyle = '#fcfcfc';
+    const labelColor = COLORS[ci % COLORS.length];
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(padL, y0, W - padL - padR, chH);
-    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(padL, y0 + chH); ctx.lineTo(W - padR, y0 + chH); ctx.stroke();
-
-    // Zero line
-    ctx.strokeStyle = '#eee';
+    ctx.strokeStyle = '#f3f4f6';
     ctx.beginPath(); ctx.moveTo(padL, yMid); ctx.lineTo(W - padR, yMid); ctx.stroke();
 
-    // Channel label — small colored chip with black text
-    ctx.font = 'bold 11px sans-serif';
+    // Channel name chip on left
+    ctx.font = 'bold 11px -apple-system, sans-serif';
     const lbl = meta.channel_labels[ci];
     const lblW = ctx.measureText(lbl).width;
     ctx.fillStyle = labelColor;
-    ctx.fillRect(padL + 2, y0 + 2, lblW + 10, 14);
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'left';
-    ctx.fillText(lbl, padL + 7, y0 + 12);
+    ctx.fillRect(padL + 2, y0 + 3, lblW + 12, 16);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(lbl, padL + 8, y0 + 14);
 
-    // FIXED amplitude scale per channel: based on per-channel reference max from the WHOLE session
-    // Multiplied by user-controlled gain. Higher gain = bigger visible signal (zoom in).
     const refMax = STATE.showFilt ? STATE.filtRefMax[ci] : STATE.rawRefMax[ci];
     const ampScale = (yAmp * STATE.gain) / refMax;
 
-    // Draw waveform using min/max binning per pixel — ALWAYS BLACK
     const plotW = W - padL - padR;
     const samplesPerPx = (endSamp - startSamp) / plotW;
-    ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 1;
     ctx.beginPath();
     if (samplesPerPx >= 2) {
-      // Min/max bins
       for (let px = 0; px < plotW; px++) {
         const s0 = startSamp + Math.floor(px * samplesPerPx);
         const s1 = Math.min(endSamp, startSamp + Math.floor((px + 1) * samplesPerPx));
         let mn = Infinity, mx = -Infinity;
         for (let s = s0; s < s1; s++) {
-          const v = samples[s * ncs + ci];
-          if (v < mn) mn = v;
-          if (v > mx) mx = v;
+          const v = samples[s*ncs+ci];
+          if (v < mn) mn = v; if (v > mx) mx = v;
         }
-        const yMin = yMid - mn * ampScale;
-        const yMax = yMid - mx * ampScale;
-        ctx.moveTo(padL + px, yMin);
-        ctx.lineTo(padL + px, yMax);
+        ctx.moveTo(padL + px, yMid - mn * ampScale);
+        ctx.lineTo(padL + px, yMid - mx * ampScale);
       }
     } else {
-      // Direct sample plot
       let first = true;
       for (let s = startSamp; s < endSamp; s++) {
         const x = padL + (s - startSamp) / samplesPerPx;
-        const y = yMid - samples[s * ncs + ci] * ampScale;
-        if (first) { ctx.moveTo(x, y); first = false; }
-        else ctx.lineTo(x, y);
+        const y = yMid - samples[s*ncs+ci] * ampScale;
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
       }
     }
     ctx.stroke();
 
-    // Threshold line for filtered (k × global noise SD — single flat line per channel)
     if (STATE.showFilt && STATE.perChannelThr) {
       const thr = STATE.perChannelThr[ci];
       const yThr = yMid - thr * ampScale;
-      ctx.strokeStyle = 'rgba(220, 0, 0, 0.6)';
-      ctx.setLineDash([4, 3]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padL, yThr); ctx.lineTo(W - padR, yThr);
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(220, 38, 38, 0.55)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, yThr); ctx.lineTo(W - padR, yThr); ctx.stroke();
       ctx.setLineDash([]);
     }
   });
 
-  // ====== Selection epoch — drawn after channels so it shows on top of data ======
+  // Selection overlay (drawn after channels so it sits on top)
   if (STATE.epoch) {
     const eStartS = STATE.epoch.startSamp / sr;
     const eEndS = STATE.epoch.endSamp / sr;
     if (eEndS > STATE.windowStart && eStartS < STATE.windowStart + STATE.zoomSec) {
       const xs = Math.max(padL, padL + (eStartS - STATE.windowStart) / STATE.zoomSec * (W - padL - padR));
       const xe = Math.min(W - padR, padL + (eEndS - STATE.windowStart) / STATE.zoomSec * (W - padL - padR));
-      // Translucent fill on top of waveforms (low alpha so data shows through)
-      ctx.fillStyle = 'rgba(255, 200, 0, 0.22)';
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
       ctx.fillRect(xs, padTop, xe - xs, H - padTop - padBot);
-      // Solid edge lines
-      ctx.strokeStyle = '#ff8c00';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(xs, padTop); ctx.lineTo(xs, H - padBot);
       ctx.moveTo(xe, padTop); ctx.lineTo(xe, H - padBot);
       ctx.stroke();
-      // Duration label at bottom center of selection
-      const dur = (eEndS - eStartS);
-      const label = `${dur.toFixed(3)} s selected`;
-      ctx.font = 'bold 12px sans-serif';
+      const dur = eEndS - eStartS;
+      const label = `${dur.toFixed(3)} s`;
+      ctx.font = 'bold 11px -apple-system, sans-serif';
       const lw = ctx.measureText(label).width;
       const xMid = (xs + xe) / 2;
-      ctx.fillStyle = '#ff8c00';
+      ctx.fillStyle = '#d97706';
       ctx.fillRect(xMid - lw/2 - 6, H - padBot - 22, lw + 12, 18);
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
       ctx.fillText(label, xMid, H - padBot - 9);
-      ctx.lineWidth = 1;
     }
   }
 
-  // ====== Event markers — drawn LAST so they overlay all channels ======
+  // Event markers drawn LAST so they sit on top of everything
   for (const ev of meta.events) {
     if (ev.time_s >= STATE.windowStart && ev.time_s <= STATE.windowStart + STATE.zoomSec) {
       const x = padL + (ev.time_s - STATE.windowStart) / STATE.zoomSec * (W - padL - padR);
-      const c = EVENT_COLORS[ev.id] || '#888';
-      // Solid full-height line through every channel
-      ctx.strokeStyle = c;
-      ctx.lineWidth = 2;
+      const c = EVENT_COLORS[ev.id] || '#6b7280';
+      ctx.strokeStyle = c; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - padBot); ctx.stroke();
-      // Label pill at the very top
       const label = (EVENT_NAMES[ev.id] || `m${ev.id}`) + ` @ ${ev.time_s.toFixed(2)}s`;
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
       const tw_ = ctx.measureText(label).width;
       ctx.fillStyle = c;
       ctx.fillRect(x + 2, 2, tw_ + 8, 16);
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'left';
-      ctx.fillText(label, x + 6, 14);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+      ctx.fillText(label, x + 6, 13);
     }
   }
   ctx.lineWidth = 1;
 }
 
-// ====== Controls ======
+// ============ Controls ============
 document.getElementById('time-scrubber').addEventListener('input', (e) => {
-  STATE.windowStart = parseFloat(e.target.value);
-  document.getElementById('time-info').textContent =
-    `${STATE.windowStart.toFixed(2)} – ${(STATE.windowStart + STATE.zoomSec).toFixed(2)} s`;
-  draw();
+  STATE.windowStart = parseFloat(e.target.value); updateTimeInfo(); draw();
 });
-
 document.getElementById('btn-filt').addEventListener('click', () => {
   STATE.showFilt = true;
-  document.getElementById('btn-filt').classList.add('active');
-  document.getElementById('btn-raw').classList.remove('active');
+  document.getElementById('btn-filt').classList.add('is-active');
+  document.getElementById('btn-raw').classList.remove('is-active');
   draw();
 });
 document.getElementById('btn-raw').addEventListener('click', () => {
   STATE.showFilt = false;
-  document.getElementById('btn-raw').classList.add('active');
-  document.getElementById('btn-filt').classList.remove('active');
+  document.getElementById('btn-raw').classList.add('is-active');
+  document.getElementById('btn-filt').classList.remove('is-active');
   draw();
 });
-
 document.querySelectorAll('[data-zoom]').forEach(b => {
   b.addEventListener('click', () => {
     STATE.zoomSec = parseFloat(b.getAttribute('data-zoom'));
-    document.querySelectorAll('[data-zoom]').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    updateScrubber();
-    draw();
+    document.querySelectorAll('[data-zoom]').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    updateScrubber(); draw();
   });
 });
 
-// Gain controls
 const gainSlider = document.getElementById('gain-slider');
 const gainValue = document.getElementById('gain-value');
 function setGain(g, fromSlider) {
@@ -546,10 +760,7 @@ function setGain(g, fromSlider) {
   if (!fromSlider) gainSlider.value = Math.log10(STATE.gain).toFixed(3);
   draw();
 }
-gainSlider.addEventListener('input', (e) => {
-  const g = Math.pow(10, parseFloat(e.target.value));
-  setGain(g, true);
-});
+gainSlider.addEventListener('input', (e) => { setGain(Math.pow(10, parseFloat(e.target.value)), true); });
 document.querySelectorAll('[data-gain]').forEach(b => {
   b.addEventListener('click', () => {
     const v = b.getAttribute('data-gain');
@@ -567,235 +778,7 @@ document.getElementById('next-btn').addEventListener('click', () => {
   updateScrubber(); draw();
 });
 
-// ====== Epoch selection by mouse drag ======
-function pxToTime(px) {
-  const W = canvas.width / window.devicePixelRatio;
-  const padL = 50, padR = 12;
-  const plotW = W - padL - padR;
-  const frac = (px - padL) / plotW;
-  return STATE.windowStart + frac * STATE.zoomSec;
-}
-
-canvas.addEventListener('mousedown', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  STATE.dragStart = pxToTime(x);
-});
-canvas.addEventListener('mousemove', (e) => {
-  if (STATE.dragStart === null) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const t = pxToTime(x);
-  const startT = Math.min(STATE.dragStart, t);
-  const endT = Math.max(STATE.dragStart, t);
-  STATE.epoch = {
-    startSamp: Math.max(0, Math.floor(startT * STATE.sr)),
-    endSamp: Math.min(STATE.currentMeta.n_samples, Math.ceil(endT * STATE.sr))
-  };
-  updateEpochUI();
-  draw();
-});
-canvas.addEventListener('mouseup', () => { STATE.dragStart = null; });
-canvas.addEventListener('mouseleave', () => { STATE.dragStart = null; });
-
-document.getElementById('clear-epoch').addEventListener('click', () => {
-  STATE.epoch = null; updateEpochUI(); draw();
-});
-
-function updateEpochUI() {
-  const eb = document.getElementById('epoch-info');
-  const fr = document.getElementById('firing-rate-btn');
-  const rm = document.getElementById('rms-btn');
-  if (STATE.epoch) {
-    const dur = (STATE.epoch.endSamp - STATE.epoch.startSamp) / STATE.sr;
-    eb.textContent = `Epoch: ${(STATE.epoch.startSamp / STATE.sr).toFixed(3)} – ${(STATE.epoch.endSamp / STATE.sr).toFixed(3)} s   (duration ${dur.toFixed(3)} s)`;
-    fr.disabled = false; rm.disabled = false;
-  } else {
-    eb.textContent = 'No epoch selected';
-    fr.disabled = true; rm.disabled = true;
-  }
-}
-
-// ====== Analyses ======
-function computeFiringRate() {
-  if (!STATE.epoch) return;
-  const meta = STATE.currentMeta;
-  const ncs = meta.n_channels;
-  const startSamp = STATE.epoch.startSamp;
-  const endSamp = STATE.epoch.endSamp;
-  const dur = (endSamp - startSamp) / STATE.sr;
-  const out = [];
-  for (let ci = 0; ci < ncs; ci++) {
-    if (!STATE.visibleChannels[ci]) continue;
-    // Count precomputed spikes that fall inside the epoch (matches raster exactly)
-    const spkArr = STATE.spikes[ci] || [];
-    let n = 0;
-    for (const s of spkArr) {
-      if (s >= startSamp && s < endSamp) n++;
-    }
-    out.push({ch: meta.channel_labels[ci], n, rate: n / dur, dur});
-  }
-  showResults(`Firing Rate (${STATE.thresholdMult.toFixed(1)}× noise SD, 4 ms refractory, ${dur.toFixed(3)} s epoch)`,
-              out, ['ch', 'n', 'rate'], ['Channel', '# spikes', 'Rate (Hz)']);
-}
-
-function computeRMS() {
-  if (!STATE.epoch) return;
-  const meta = STATE.currentMeta;
-  const ncs = meta.n_channels;
-  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
-  const scales = STATE.showFilt ? STATE.filtScales : STATE.rawScales;
-  const out = [];
-  for (let ci = 0; ci < ncs; ci++) {
-    if (!STATE.visibleChannels[ci]) continue;
-    let sumSq = 0, n = 0;
-    const scaleCh = scales[ci];
-    for (let i = STATE.epoch.startSamp; i < STATE.epoch.endSamp; i++) {
-      const v = samples[i * ncs + ci] / scaleCh;
-      sumSq += v * v; n++;
-    }
-    const rms = Math.sqrt(sumSq / n);
-    const sdMultiple = STATE.showFilt ? (rms / STATE.noiseSD[ci]) : null;
-    out.push({ch: meta.channel_labels[ci], rms, sdMultiple, n});
-  }
-  const sigLabel = STATE.showFilt ? 'filtered' : 'raw';
-  showResults(`RMS (${sigLabel} signal)`, out, ['ch','rms','sdMultiple'], ['Channel', `RMS (${sigLabel} units)`, '× noise SD']);
-}
-
-function showResults(title, rows, keys, headers) {
-  const el = document.getElementById('results');
-  let html = `<div style="font-weight:600; margin-bottom:4px;">${title}</div>`;
-  html += '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
-  for (const r of rows) {
-    html += '<tr>' + keys.map(k => {
-      let v = r[k];
-      if (typeof v === 'number') v = (Math.abs(v) < 0.01 || Math.abs(v) > 9999) ? v.toExponential(3) : v.toFixed(3);
-      else if (v === null || v === undefined) v = '—';
-      return `<td>${v}</td>`;
-    }).join('') + '</tr>';
-  }
-  html += '</table>';
-  el.innerHTML = html;
-}
-
-// ====== Audio playback (Web Audio API) ======
-let audioCtx = null;
-let currentSource = null;
-
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
-
-function stopAudio() {
-  if (currentSource) { try { currentSource.stop(); } catch(e){}; currentSource = null; }
-  document.getElementById('play-btn').textContent = '▶ Play visible window';
-}
-
-function playVisibleWindow() {
-  stopAudio();
-  if (!STATE.currentMeta) return;
-  const actx = getAudioContext();
-  if (actx.state === 'suspended') actx.resume();
-
-  const meta = STATE.currentMeta;
-  const ncs = meta.n_channels;
-  const sr = STATE.sr;
-  const ci = parseInt(document.getElementById('audio-channel').value, 10);
-  if (isNaN(ci)) return;
-
-  const startSamp = Math.max(0, Math.floor(STATE.windowStart * sr));
-  const endSamp = Math.min(meta.n_samples, Math.floor((STATE.windowStart + STATE.zoomSec) * sr));
-  const N = endSamp - startSamp;
-  if (N < 10) return;
-
-  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
-  const scale = STATE.showFilt ? STATE.filtScales[ci] : STATE.rawScales[ci];
-
-  // Extract + normalize to ±0.9 to avoid clipping
-  const src = new Float32Array(N);
-  let maxAbs = 1e-9;
-  for (let i = 0; i < N; i++) {
-    const v = samples[(startSamp + i) * ncs + ci] / scale;
-    src[i] = v;
-    if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
-  }
-  const norm = 0.9 / maxAbs;
-  for (let i = 0; i < N; i++) src[i] *= norm;
-
-  // Resample from 2.5 kHz to the audio context's native rate (typically 44100 or 48000)
-  // via linear interpolation — keeps real-time playback speed
-  const outRate = actx.sampleRate;
-  const ratio = outRate / sr;
-  const outN = Math.floor(N * ratio);
-  const outBuf = new Float32Array(outN);
-  for (let i = 0; i < outN; i++) {
-    const t = i / ratio;
-    const i0 = Math.floor(t);
-    const i1 = Math.min(N - 1, i0 + 1);
-    const f = t - i0;
-    outBuf[i] = src[i0] * (1 - f) + src[i1] * f;
-  }
-
-  const audioBuf = actx.createBuffer(1, outN, outRate);
-  audioBuf.copyToChannel(outBuf, 0);
-  const sourceNode = actx.createBufferSource();
-  sourceNode.buffer = audioBuf;
-  sourceNode.connect(actx.destination);
-  sourceNode.start();
-  currentSource = sourceNode;
-  document.getElementById('play-btn').textContent = '▶ Playing… (click to restart)';
-  sourceNode.onended = () => {
-    if (currentSource === sourceNode) {
-      currentSource = null;
-      document.getElementById('play-btn').textContent = '▶ Play visible window';
-    }
-  };
-}
-
-document.getElementById('play-btn').addEventListener('click', playVisibleWindow);
-document.getElementById('stop-btn').addEventListener('click', stopAudio);
-
-// ====== Spike detection (global noise SD per channel × user multiplier) ======
-function detectAllSpikes() {
-  if (!STATE.currentMeta) return;
-  const meta = STATE.currentMeta;
-  const ncs = meta.n_channels;
-  const sr = STATE.sr;
-  const N = meta.n_samples;
-  const refrSamp = Math.floor(0.004 * sr);
-  const k = STATE.thresholdMult;
-  const t0 = performance.now();
-  STATE.spikes = [];
-  STATE.perChannelThr = []; // single threshold value per channel
-  for (let ci = 0; ci < ncs; ci++) {
-    // Global threshold = k × noise SD (precomputed at session load)
-    const nsdInts = STATE.noiseSD[ci] * STATE.filtScales[ci];
-    const thr = k * nsdInts;
-    STATE.perChannelThr.push(thr);
-    const spk = [];
-    let i = 0;
-    while (i < N) {
-      const v = STATE.filtSamples[i * ncs + ci];
-      if (v > thr) {
-        const jEnd = Math.min(N, i + refrSamp);
-        let pk = i, pkV = v;
-        for (let j = i + 1; j < jEnd; j++) {
-          const v2 = STATE.filtSamples[j * ncs + ci];
-          if (v2 > pkV) { pkV = v2; pk = j; }
-        }
-        spk.push(pk);
-        i = pk + refrSamp;
-      } else i++;
-    }
-    STATE.spikes.push(spk);
-  }
-  const dt = performance.now() - t0;
-  const totalSpk = STATE.spikes.reduce((s,a)=>s+a.length, 0);
-  console.log(`Detected ${totalSpk} spikes across ${ncs} channels at ${k.toFixed(1)}× noise SD (${dt.toFixed(0)} ms)`);
-}
-
-// Slider events for threshold
+// Threshold slider
 const thrSlider = document.getElementById('thr-slider');
 const thrValueLbl = document.getElementById('thr-value');
 let thrDebounce = null;
@@ -813,26 +796,128 @@ document.getElementById('thr-reset').addEventListener('click', () => {
   detectAllSpikes(); draw();
 });
 
+// Epoch selection
+function pxToTime(px) {
+  const W = canvas.width / window.devicePixelRatio;
+  const padL = 56, padR = 16;
+  const plotW = W - padL - padR;
+  const frac = (px - padL) / plotW;
+  return STATE.windowStart + frac * STATE.zoomSec;
+}
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  STATE.dragStart = pxToTime(e.clientX - rect.left);
+});
+canvas.addEventListener('mousemove', (e) => {
+  if (STATE.dragStart === null) return;
+  const rect = canvas.getBoundingClientRect();
+  const t = pxToTime(e.clientX - rect.left);
+  const startT = Math.min(STATE.dragStart, t);
+  const endT = Math.max(STATE.dragStart, t);
+  STATE.epoch = {
+    startSamp: Math.max(0, Math.floor(startT * STATE.sr)),
+    endSamp: Math.min(STATE.currentMeta.n_samples, Math.ceil(endT * STATE.sr))
+  };
+  updateEpochUI(); draw();
+});
+canvas.addEventListener('mouseup', () => { STATE.dragStart = null; });
+canvas.addEventListener('mouseleave', () => { STATE.dragStart = null; });
+document.getElementById('clear-epoch').addEventListener('click', () => {
+  STATE.epoch = null; updateEpochUI(); draw();
+});
+
+function updateEpochUI() {
+  const eb = document.getElementById('epoch-info');
+  const fr = document.getElementById('firing-rate-btn');
+  const rm = document.getElementById('rms-btn');
+  if (STATE.epoch) {
+    const dur = (STATE.epoch.endSamp - STATE.epoch.startSamp) / STATE.sr;
+    eb.innerHTML = `Epoch <b>${(STATE.epoch.startSamp/STATE.sr).toFixed(3)} – ${(STATE.epoch.endSamp/STATE.sr).toFixed(3)} s</b> <span class="muted">(duration ${dur.toFixed(3)} s)</span>`;
+    fr.disabled = false; rm.disabled = false;
+  } else {
+    eb.innerHTML = '<span class="muted">No epoch selected — click and drag on the canvas to choose one.</span>';
+    fr.disabled = true; rm.disabled = true;
+  }
+}
+
+// Analyses
+function computeFiringRate() {
+  if (!STATE.epoch) return;
+  const meta = STATE.currentMeta;
+  const startSamp = STATE.epoch.startSamp, endSamp = STATE.epoch.endSamp;
+  const dur = (endSamp - startSamp) / STATE.sr;
+  const out = [];
+  for (let ci = 0; ci < meta.n_channels; ci++) {
+    if (!STATE.visibleChannels[ci]) continue;
+    const spkArr = STATE.spikes[ci] || [];
+    let n = 0;
+    for (const s of spkArr) if (s >= startSamp && s < endSamp) n++;
+    out.push({ch: meta.channel_labels[ci], n, rate: n / dur});
+  }
+  showResults(`Firing rate · ${STATE.thresholdMult.toFixed(1)}× noise SD · 4 ms refractory · ${dur.toFixed(3)} s epoch`,
+              out, ['ch', 'n', 'rate'], ['Channel', '# spikes', 'Rate (Hz)']);
+}
+
+function computeRMS() {
+  if (!STATE.epoch) return;
+  const meta = STATE.currentMeta;
+  const ncs = meta.n_channels;
+  const samples = STATE.showFilt ? STATE.filtSamples : STATE.rawSamples;
+  const scales = STATE.showFilt ? STATE.filtScales : STATE.rawScales;
+  const out = [];
+  for (let ci = 0; ci < ncs; ci++) {
+    if (!STATE.visibleChannels[ci]) continue;
+    let sumSq = 0, n = 0;
+    const scaleCh = scales[ci];
+    for (let i = STATE.epoch.startSamp; i < STATE.epoch.endSamp; i++) {
+      const v = samples[i*ncs+ci] / scaleCh;
+      sumSq += v*v; n++;
+    }
+    const rms = Math.sqrt(sumSq / n);
+    const sdMultiple = STATE.showFilt ? (rms / STATE.noiseSD[ci]) : null;
+    out.push({ch: meta.channel_labels[ci], rms, sdMultiple});
+  }
+  const sigLabel = STATE.showFilt ? 'filtered' : 'raw';
+  showResults(`RMS · ${sigLabel} signal`, out, ['ch','rms','sdMultiple'],
+              ['Channel', `RMS (${sigLabel} units)`, '× noise SD']);
+}
+
+function showResults(title, rows, keys, headers) {
+  const el = document.getElementById('results');
+  let html = `<h4>${title}</h4>`;
+  html += '<table><thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  for (const r of rows) {
+    html += '<tr>' + keys.map(k => {
+      let v = r[k];
+      if (typeof v === 'number') v = (Math.abs(v) < 0.01 || Math.abs(v) > 9999) ? v.toExponential(3) : v.toFixed(3);
+      else if (v === null || v === undefined) v = '—';
+      return `<td>${v}</td>`;
+    }).join('') + '</tr>';
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
 function safeRun(name, fn) {
   const el = document.getElementById('results');
   try {
     if (!STATE.epoch) {
-      el.innerHTML = `<div style="color:#a00; font-weight:600;">No epoch selected — click and drag on the canvas first.</div>`;
+      el.innerHTML = `<span style="color:var(--danger); font-weight:600;">No epoch selected. Click and drag on the canvas first.</span>`;
       return;
     }
-    el.innerHTML = `<div style="color:#555;">Computing ${name}…</div>`;
+    el.innerHTML = `<span class="muted">Computing ${name}…</span>`;
     setTimeout(() => {
-      try { fn(); el.scrollIntoView({behavior:'smooth', block:'nearest'}); }
-      catch (e) { el.innerHTML = `<div style="color:#a00;"><b>${name} failed:</b> ${e.message}<br><pre style="font-size:11px;">${e.stack}</pre></div>`; }
+      try { fn(); }
+      catch (e) { el.innerHTML = `<span style="color:var(--danger);"><b>${name} failed:</b> ${e.message}</span>`; }
     }, 10);
   } catch (e) {
-    el.innerHTML = `<div style="color:#a00;"><b>${name} failed:</b> ${e.message}<br><pre style="font-size:11px;">${e.stack}</pre></div>`;
+    el.innerHTML = `<span style="color:var(--danger);"><b>${name} failed:</b> ${e.message}</span>`;
   }
 }
 document.getElementById('firing-rate-btn').addEventListener('click', () => safeRun('firing rate', computeFiringRate));
 document.getElementById('rms-btn').addEventListener('click', () => safeRun('RMS', computeRMS));
 
-// ====== Boot ======
+// Boot
 resizeCanvas();
 loadIndex();
 </script>
