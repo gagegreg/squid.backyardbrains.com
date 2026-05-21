@@ -1,0 +1,43 @@
+{
+ "name": "5-21_fish_juice",
+ "sample_rate": 2500,
+ "n_samples": 80940,
+ "n_channels": 2,
+ "duration_s": 32.376,
+ "raw_scales_per_channel": [
+  1639526.7117963033,
+  528380.0753553229
+ ],
+ "filt_scales_per_channel": [
+  1922555.9024314475,
+  554170.0934509499
+ ],
+ "noise_sd_filt": [
+  0.0034501980990171432,
+  0.0032847102265805006
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "tentacle?",
+  "date": "5/21",
+  "time": "",
+  "purpose": "fish juice",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

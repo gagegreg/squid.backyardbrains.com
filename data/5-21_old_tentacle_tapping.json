@@ -1,0 +1,43 @@
+{
+ "name": "5-21_old_tentacle_tapping",
+ "sample_rate": 2500,
+ "n_samples": 89655,
+ "n_channels": 2,
+ "duration_s": 35.862,
+ "raw_scales_per_channel": [
+  1556779.0254054135,
+  895187.7810835481
+ ],
+ "filt_scales_per_channel": [
+  1536922.948044631,
+  941659.7951287864
+ ],
+ "noise_sd_filt": [
+  0.0034723172429949045,
+  0.003336059395223856
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "old tentacle",
+  "date": "5/21",
+  "time": "",
+  "purpose": "tapping",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

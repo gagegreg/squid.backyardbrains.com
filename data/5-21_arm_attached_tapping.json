@@ -1,0 +1,38 @@
+{
+ "name": "5-21_arm_attached_tapping",
+ "sample_rate": 2500,
+ "n_samples": 74974,
+ "n_channels": 1,
+ "duration_s": 29.9896,
+ "raw_scales_per_channel": [
+  142720.28923093283
+ ],
+ "filt_scales_per_channel": [
+  188986.64965260512
+ ],
+ "noise_sd_filt": [
+  0.003539238590747118
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "arm",
+  "date": "5/21",
+  "time": "",
+  "purpose": "tapping",
+  "channel_labels": [
+   "ch0"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

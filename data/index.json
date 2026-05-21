@@ -103,6 +103,105 @@
    "n_channels": 2,
    "n_events": 0,
    "paired": false
+<<<<<<< HEAD
+=======
+  },
+  {
+   "id": "5-21_4-aminopyridine",
+   "label": "5/21 tentacle? \u2014 4-aminopyridine (K\u207a channel blocker)",
+   "duration_s": 71.1744,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_arm_attached_electricity",
+   "label": "5/21 arm \u2014 electrical stim",
+   "duration_s": 34.3996,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_arm_attached_tapping",
+   "label": "5/21 arm \u2014 tapping",
+   "duration_s": 29.9896,
+   "n_channels": 1,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_fish_juice",
+   "label": "5/21 tentacle? \u2014 fish juice",
+   "duration_s": 32.376,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_old_tentacle_tapping",
+   "label": "5/21 old tentacle \u2014 tapping",
+   "duration_s": 35.862,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_squid2_electricity_fresh",
+   "label": "5/21 squid 2 tentacle \u2014 electrical stim (fresh)",
+   "duration_s": 83.7224,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_squid2_tentacle_tapping",
+   "label": "5/21 squid 2 tentacle \u2014 tapping",
+   "duration_s": 49.4656,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_tentacle1_electricity",
+   "label": "5/21 tentacle 1 \u2014 electrical stim",
+   "duration_s": 145.142,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_tentacle1_tapping",
+   "label": "5/21 tentacle 1 \u2014 tapping",
+   "duration_s": 105.244,
+   "n_channels": 1,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_tentacle2_electricity",
+   "label": "5/21 tentacle 2 \u2014 electrical stim",
+   "duration_s": 128.382,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_tentacle2_tapping",
+   "label": "5/21 tentacle 2 \u2014 tapping",
+   "duration_s": 76.7608,
+   "n_channels": 1,
+   "n_events": 0,
+   "paired": false
+  },
+  {
+   "id": "5-21_touching_cut",
+   "label": "5/21 tentacle? \u2014 touching cut",
+   "duration_s": 23.3144,
+   "n_channels": 2,
+   "n_events": 0,
+   "paired": false
+>>>>>>> cdfde1c (Initial commit — Squid Ephys Viewer)
   }
  ],
  "decimated_sr": 2500

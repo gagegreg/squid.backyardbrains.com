@@ -1,0 +1,43 @@
+{
+ "name": "5-21_tentacle1_electricity",
+ "sample_rate": 2500,
+ "n_samples": 362855,
+ "n_channels": 2,
+ "duration_s": 145.142,
+ "raw_scales_per_channel": [
+  48926.909043420266,
+  139657.87351888366
+ ],
+ "filt_scales_per_channel": [
+  57878.089999322976,
+  148803.00826193852
+ ],
+ "noise_sd_filt": [
+  0.0036082095466554165,
+  0.003382472088560462
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "tentacle 1",
+  "date": "5/21",
+  "time": "",
+  "purpose": "electrical stim",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

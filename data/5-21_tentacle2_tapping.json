@@ -1,0 +1,38 @@
+{
+ "name": "5-21_tentacle2_tapping",
+ "sample_rate": 2500,
+ "n_samples": 191902,
+ "n_channels": 1,
+ "duration_s": 76.7608,
+ "raw_scales_per_channel": [
+  34692.23989668661
+ ],
+ "filt_scales_per_channel": [
+  35494.92396408742
+ ],
+ "noise_sd_filt": [
+  0.0038919018115848303
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "tentacle 2",
+  "date": "5/21",
+  "time": "",
+  "purpose": "tapping",
+  "channel_labels": [
+   "ch0"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}

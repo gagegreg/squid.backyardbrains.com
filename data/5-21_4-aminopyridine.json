@@ -1,0 +1,43 @@
+{
+ "name": "5-21_4-aminopyridine",
+ "sample_rate": 2500,
+ "n_samples": 177936,
+ "n_channels": 2,
+ "duration_s": 71.1744,
+ "raw_scales_per_channel": [
+  257335.65254736974,
+  699952.9497659744
+ ],
+ "filt_scales_per_channel": [
+  307117.8954848749,
+  760383.9757638377
+ ],
+ "noise_sd_filt": [
+  0.0035122425761073828,
+  0.0033175216522067785
+ ],
+ "events": [],
+ "paired": false,
+ "info": {
+  "squid": "?",
+  "prep": "tentacle?",
+  "date": "5/21",
+  "time": "",
+  "purpose": "4-aminopyridine (K\u207a channel blocker)",
+  "channel_labels": [
+   "ch0",
+   "ch1"
+  ],
+  "note": "recorded by students; no event markers"
+ },
+ "channel_labels": [
+  "ch0",
+  "ch1"
+ ],
+ "marker_labels": {
+  "0": "seawater",
+  "1": "shrimp",
+  "2": "seawater",
+  "3": "sponge"
+ }
+}
