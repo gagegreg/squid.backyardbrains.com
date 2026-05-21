@@ -103,8 +103,6 @@
    "n_channels": 2,
    "n_events": 0,
    "paired": false
-<<<<<<< HEAD
-=======
   },
   {
    "id": "5-21_4-aminopyridine",
@@ -201,7 +199,6 @@
    "n_channels": 2,
    "n_events": 0,
    "paired": false
->>>>>>> cdfde1c (Initial commit — Squid Ephys Viewer)
   }
  ],
  "decimated_sr": 2500
