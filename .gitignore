@@ -2,3 +2,8 @@
 *.swp
 *.tmp
 node_modules/
+data/paired_*
+data/squid1_tent_feeding_*
+data/squid3_tent2_feeding_*
+data/squid4_5-20_11-02_ios_only*
+setup_git.sh
